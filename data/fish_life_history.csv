@@ -1,0 +1,64 @@
+species,scientific_name,tropic_level,trophic_category,feeding_position
+barred sand bass,Paralabrax nebulifer,3.5,tertiary_carnivore,benthopelagic 
+barred surfperch,Amphistichus argenteus,3.5,secondary_carnivore,benthopelagic 
+black croaker,Cheilotrema saturnum,3.6,secondary_carnivore,benthopelagic 
+black perch,Embiotica jacksoni,3.2,primary_carnivore,benthopelagic 
+blue rockfish,Sebastes mystinus,2.8,primary_carnivore,midwater
+brown rockfish,Sebastes auriculatus,4,tertiary_carnivore,benthopelagic 
+brown smooth-hound shark,Mustelus henlei,3.6,secondary_carnivore,benthopelagic 
+california corbina,Menticirrhus undulatus,3.3,secondary_carnivore,benthopelagic 
+california halibut,Paralichthys californicus,4.5,tertiary_carnivore,benthic
+california lizardfish,Synodus lucioceps,4.5,tertiary_carnivore,benthic
+california scorpionfish,Scorpaena guttata,3.8,tertiary_carnivore,benthic
+california sheephead,Semicossyphus pulcher,3.6,secondary_carnivore,benthopelagic 
+canary rockfish,Sebastes pinniger,3.8,secondary_carnivore,midwater
+chilipepper rockfish,Sebastes goodei,3.5,secondary_carnivore,midwater
+chub mackerel,Scomber japonicus,3.1,secondary_carnivore,pelagic
+copper rockfish,Sebastes caurinus,4.1,tertiary_carnivore,benthopelagic 
+diamond turbot,Pleuronichthys guttulatus,3.3,secondary_carnivore,benthic
+fantail sole,Xystreurys liolepis,3.5,secondary_carnivore,benthic
+flag rockfish,Sebastes rubrivinctus,3.7,secondary_carnivore,benthopelagic 
+gopher rockfish,Sebastes carnatus,3.6,secondary_carnivore,benthopelagic 
+gray smoothhound shark,Mustelus californicus,3.5,secondary_carnivore,benthopelagic 
+greenblotched rockfish,Sebastes rosenblatti,3.7,secondary_carnivore,benthopelagic 
+greenspotted rockfish,Sebastes chlorostictus,3.7,secondary_carnivore,benthopelagic 
+halfmoon,Medialuna californiensis,2.7,herbivore,midwater
+hornyhead turbot,Pleuronichthys verticalis,3.1,secondary_carnivore,benthic
+jacksmelt,Atherinopsis californiensis,3.1,secondary_carnivore,midwater
+kelp bass,Paralabrax clathratus,3.9,secondary_carnivore,midwater
+kelp rockfish,Sebastes atrovirens,3.4,secondary_carnivore,midwater
+leopard shark,Triakis semifasciata,3.7,tertiary_carnivore,benthopelagic 
+longfin sanddab,Citharichthys xanthostigma,3.6,secondary_carnivore,benthic
+market squid,Doryteuthis opalescens,2.7,primary_carnivore,pelagic
+northern anchovy,Engraulis mordax,3.1,primary_carnivore,pelagic
+ocean whitefish,Caulolatilus princeps,4,tertiary_carnivore,benthopelagic 
+olive rockfish,Sebastes serranoides,3.9,secondary_carnivore,midwater
+opaleye,Girella nigricans,2.2,herbivore,benthopelagic 
+pacific barracuda,Sphyraena argentea,4.5,tertiary_carnivore,pelagic
+pacific sardine,Sardinops sagax,2.8,primary_carnivore,pelagic
+pile surfperch,Phanerodon vacca,3,secondary_carnivore,benthopelagic 
+queenfish,Seriphus politus,3.7,secondary_carnivore,midwater
+quillback rockfish,Sebastes maliger,3.8,secondary_carnivore,benthopelagic 
+rainbow surfperch,Hypsurus caryi,3.3,primary_carnivore,benthopelagic 
+rosy rockfish,Sebastes helvomaculatus,3.7,secondary_carnivore,benthopelagic 
+round stingray,Urolophus halleri,3.2,secondary_carnivore,benthic
+shiner surfperch,Cymatogaster aggregata,3,primary_carnivore,midwater
+shovelnose guitarfish,Rhinobatos productus,3.6,secondary_carnivore,benthic
+slough anchovy,Anchoa delicatissima,3.4,primary_carnivore,pelagic
+speckled rockfish,Sebastes ovalis,3.8,secondary_carnivore,benthopelagic 
+speckled sanddab,Citharichthys stigmaeus,3.4,secondary_carnivore,benthic
+spiny dogfish,Squalus acanthias,4.3,tertiary_carnivore,benthopelagic 
+spotfin croaker,Roncador stearnsii,3.3,secondary_carnivore,benthopelagic 
+spotted sand bass,Paralabrax maculatofasciatus,4.2,tertiary_carnivore,benthopelagic 
+spotted scorpionfish,Scorpaena guttata,4,tertiary_carnivore,benthic
+spotted turbot,Pleuronichthys ritteri,3.2,secondary_carnivore,benthic
+squarespot rockfish,Sebastes hopkinsi,3.6,secondary_carnivore,midwater
+starry rockfish,Sebastes constellatus,3.7,secondary_carnivore,benthopelagic 
+striped mullet,Mugil cephalus,2.5,herbivore,midwater
+top smelt,Atherinops affinis,2.8,primary_carnivore,midwater
+vermilion rockfish,Sebastes miniatus,3.8,secondary_carnivore,benthopelagic 
+walleye surfperch,Hyperprosopon argenteum,3.5,secondary_carnivore,midwater
+white croaker,Genyonemus lineatus,3.4,secondary_carnivore,benthopelagic 
+white surfperch,Phanerodon furcatus,3.4,secondary_carnivore,benthopelagic 
+yellowfin croaker,Umbrina roncador,3.5,secondary_carnivore,benthopelagic 
+yellowtail rockfish,Sebastes flavidus,3.5,secondary_carnivore,midwater
