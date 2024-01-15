@@ -37,8 +37,9 @@ sed_2018 <- rast("data/sediment_rasters/sediment_totalDDT_2018.grd")
 ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv")
 ```
 
-Here I tried to read in the fish DDT concentrations as an sf file to plot it as a map kinda thing.  
+Here I tried to read in the fish DDT concentrations as an sf file to plot it as a map kinda thing.\
 The problem is I am not sure what the variables mean since we don't have the metadata. I am not sure what composite target longitude/latitude are (are they just longitude and latitude or something weird?). Can't remember how to convert lat/long to geometries.
+
 ```{r}
 # read in fish ddt concentrations as sf
 #ddt_fish_sf <- st_read(("data/fish_data/totalDDT_fish_SouthernCA.csv"),
@@ -50,6 +51,7 @@ The problem is I am not sure what the variables mean since we don't have the met
 Cleaned the names because the variables were camel case (changed to lower snake case).
 
 I then saved 2003, 2008, 2013, and 2018 as separate files since the sediment raster files come in those years.
+
 ```{r}
 # clean names
 ddt_fish_clean <- ddt_fish %>% 
@@ -74,7 +76,7 @@ ddt_fish_2013 <- ddt_fish_clean %>%
   filter(year == 2013)
 
 # 2018 fish ddt concentrations
-ddt_fish_2013 <- ddt_fish_clean %>% 
+ddt_fish_2018 <- ddt_fish_clean %>% 
   filter(year == 2018)
 ```
 
@@ -101,7 +103,8 @@ Disregard this chunk for now until we figure out the latitude/longitude/geometri
 
 ### Visualize rasters with tmap
 
-Plotted all of the rasters separately. Trying to change alpha, so we can kinda see through to basemap. col_alpha = tm_const() <- how do we use this???
+Plotted all of the rasters separately. Trying to change alpha, so we can kinda see through to basemap. col_alpha = tm_const() \<- how do we use this???
+
 ```{r}
 # 2003 map
 tm_shape(sed_2003) +
@@ -131,13 +134,16 @@ tm_shape(sed_2018) +
 ### Visualize DDT Concentrations over time
 
 Just plotted total DDT concentrations over time. Again, not sure what each variable is, so not sure if this visualization even makes sense.
+
 ```{r}
 ggplot(ddt_fish_clean) +
   geom_point(aes(x = year, y = total_ddt)) +
   theme_minimal() +
   labs(title = "DDT Concentration in Fish Over Time") 
 ```
-Was trying to look at fish ddt concentrations spatially, but having trouble. 
+
+Was trying to look at fish ddt concentrations spatially, but having trouble.
+
 ```{r}
 ggplot(ddt_fish_2003) +
   geom_point(aes(x = composite_target_longitude, y = composite_target_latitude, color = total_ddt)) + theme_minimal() +
@@ -145,7 +151,7 @@ ggplot(ddt_fish_2003) +
 ```
 
 ### More visualizations to make...
-Total DDT concentrations spatially.
-* Need to know what each variable means 
+
+Total DDT concentrations spatially. \* Need to know what each variable means
 
 Once we understand the variables we can understand which visualizations will be good to use.
