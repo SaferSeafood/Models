@@ -145,7 +145,7 @@ ggplot(ddt_fish_clean) +
 Was trying to look at fish ddt concentrations spatially, but having trouble.
 
 ```{r}
-ggplot(ddt_fish_2003) +
+ggplot(ddt_fish_clean) +
   geom_point(aes(x = composite_target_longitude, y = composite_target_latitude, color = total_ddt)) + theme_minimal() +
   labs(title = "Fish DDT concentration?")
 ```
