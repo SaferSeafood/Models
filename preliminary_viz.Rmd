@@ -18,6 +18,7 @@ library(resample)
 library(tmap)
 library(maptiles)
 library(janitor)
+library(ggmap)
 ```
 
 ### Read in data
@@ -27,23 +28,39 @@ I read in the raster data and DDT fish concentration .csv.
 Unsure what the .gri files are, but were not able to read it in with `rast()`.
 
 ```{r}
-# read in sea sediment raster data
+# read in sea sediment raster data as separate rasters
 sed_2003 <- rast("data/sediment_rasters/sediment_totalDDT_2003.grd")
 sed_2008 <- rast("data/sediment_rasters/sediment_totalDDT_2008.grd")
 sed_2013 <- rast("data/sediment_rasters/sediment_totalDDT_2013.grd")
 sed_2018 <- rast("data/sediment_rasters/sediment_totalDDT_2018.grd")
 
+# create raster stack
+sed_stack <- c(sed_2003,
+               sed_2008,
+               sed_2013,
+               sed_2018)
+
+# get mean from these years
+mean_sed_stack <- app(sed_stack, fun = mean)
+```
+
+```{r}
 # read in fish ddt concentration data
-ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv")
+ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv") 
+
+# remove na values for ease of future
+ddt_fish <- na.omit(ddt_fish)
 ```
 
 Here I tried to read in the fish DDT concentrations as an sf file to plot it as a map kinda thing.\
 The problem is I am not sure what the variables mean since we don't have the metadata. I am not sure what composite target longitude/latitude are (are they just longitude and latitude or something weird?). Can't remember how to convert lat/long to geometries.
 
 ```{r}
-# read in fish ddt concentrations as sf
-#ddt_fish_sf <- st_read(("data/fish_data/totalDDT_fish_SouthernCA.csv"),
-                       #options=c("CompositeTargetLongitude=x","CompositeTargetLatitude=y")
+# convert ddt fish concentrations to sf 
+ddt_fish_sf <- st_as_sf(ddt_fish, coords = c("CompositeTargetLongitude", "CompositeTargetLatitude"), crs = st_crs(4326))
+
+# now change crs of this to same as rasters
+mean_sed_stack <- project(mean_sed_stack, "EPSG:4326")
 ```
 
 ### Data preparation
@@ -58,8 +75,8 @@ ddt_fish_clean <- ddt_fish %>%
   clean_names() # change column names to lower snake case
 
 # sf file
-#ddt_sf_clean <- ddt_fish_sf %>% 
-  #clean_names() # change column names to lower snake case
+ddt_sf_clean <- ddt_fish_sf %>% 
+  clean_names() # change column names to lower snake case
 
 # -------------------------------------------------------
 # select years 2003, 2008, 2013, 2018 and save to separate data files
@@ -80,32 +97,59 @@ ddt_fish_2018 <- ddt_fish_clean %>%
   filter(year == 2018)
 ```
 
-Disregard this chunk for now until we figure out the latitude/longitude/geometries problem.
-
 ```{r}
 # -------------------------------------------------------
 # select years for sf file 
-#ddt_sf_2003 <- ddt_sf_clean %>% 
-  #filter(year == 2003)
+ddt_sf_2003 <- ddt_sf_clean %>% 
+  filter(year == 2003) 
 
 # 2008 fish ddt concentrations
-#ddt_sf_2008 <- ddt_sf_clean %>% 
-  #filter(year == 2008)
+ddt_sf_2008 <- ddt_sf_clean %>% 
+  filter(year == 2008)
 
 # 2013 fish ddt concentrations
-#ddt_sf_2013 <- ddt_sf_clean %>% 
-  #filter(year == 2013)
+ddt_sf_2013 <- ddt_sf_clean %>% 
+  filter(year == 2013)
 
 # 2018 fish ddt concentrations
-#ddt_sf_2013 <- ddt_sf_clean %>% 
-  #filter(year == 2018)
+ddt_sf_2013 <- ddt_sf_clean %>% 
+  filter(year == 2018)
 ```
 
 ### Visualize rasters with tmap
 
+```{r}
+# convert to df
+sed_df <- as.data.frame(mean_sed_stack, xy = TRUE)
+
+#myLocation <- c(lon = 119, lat = 34)
+
+#myMap <- get_stadiamap(location=myLocation)
+
+ggplot() +
+  geom_raster(data = sed_df, mapping = aes(x = x, y = y, fill = mean)) +
+  geom_sf(data = ddt_sf_clean, mapping = aes(fill = total_ddt)) +
+  theme_minimal() +
+  labs(title = "DDT Concentrations", x = "Longitude", y = "Latitude", fill = "[DDT] Sediment")
+
+ggplot() +
+  geom_raster(data = sed_df, mapping = aes(x = x, y = y, fill = mean)) +
+  geom_point(data = ddt_fish_clean, mapping = aes(x = composite_target_longitude, y = composite_target_latitude, fill = total_ddt)) +
+  theme_minimal() 
+```
+
 Plotted all of the rasters separately. Trying to change alpha, so we can kinda see through to basemap. col_alpha = tm_const() \<- how do we use this???
 
 ```{r}
+# general mean sed stack and all points
+tm_shape(mean_sed_stack) +
+  tm_raster() +
+  tm_shape(ddt_sf_clean) +
+  tm_dots("total_ddt",
+          col.scale = tm_scale(values = "slateblue4", "slateblue3", "slateblue2","slateblue1")) +
+  tm_basemap("OpenStreetMap") +
+  tm_title("DDT Concentrations") 
+
 # 2003 map
 tm_shape(sed_2003) +
   tm_raster() +
