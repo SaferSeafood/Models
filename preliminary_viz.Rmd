@@ -21,7 +21,7 @@ library(janitor)
 library(ggmap)
 ```
 
-### Read in data
+# Read in data
 
 I read in the raster data and DDT fish concentration .csv.
 
@@ -34,17 +34,7 @@ sed_2008 <- rast("data/sediment_rasters/sediment_totalDDT_2008.grd")
 sed_2013 <- rast("data/sediment_rasters/sediment_totalDDT_2013.grd")
 sed_2018 <- rast("data/sediment_rasters/sediment_totalDDT_2018.grd")
 
-# create raster stack
-sed_stack <- c(sed_2003,
-               sed_2008,
-               sed_2013,
-               sed_2018)
-
-# get mean from these years
-mean_sed_stack <- app(sed_stack, fun = mean)
-```
-
-```{r}
+# -------------------------------------------------------------------
 # read in fish ddt concentration data
 ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv") 
 
@@ -52,22 +42,17 @@ ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv")
 ddt_fish <- na.omit(ddt_fish)
 ```
 
-Here I tried to read in the fish DDT concentrations as an sf file to plot it as a map kinda thing.\
-The problem is I am not sure what the variables mean since we don't have the metadata. I am not sure what composite target longitude/latitude are (are they just longitude and latitude or something weird?). Can't remember how to convert lat/long to geometries.
+# Data preparation
 
+### Working with fish DDT data first:
+
+I converted ddt fish concentrations to an sf file so I can plot it with the rasters later. I just set the EPSG to 4326 for no specific reason. 
 ```{r}
 # convert ddt fish concentrations to sf 
 ddt_fish_sf <- st_as_sf(ddt_fish, coords = c("CompositeTargetLongitude", "CompositeTargetLatitude"), crs = st_crs(4326))
-
-# now change crs of this to same as rasters
-mean_sed_stack <- project(mean_sed_stack, "EPSG:4326")
 ```
 
-### Data preparation
-
-Cleaned the names because the variables were camel case (changed to lower snake case).
-
-I then saved 2003, 2008, 2013, and 2018 as separate files since the sediment raster files come in those years.
+I also cleaned the names because they were Camel case. I changed it to lower snake case. I did this for the DDT fish data frame as well as the sf file.
 
 ```{r}
 # clean names
@@ -77,8 +62,11 @@ ddt_fish_clean <- ddt_fish %>%
 # sf file
 ddt_sf_clean <- ddt_fish_sf %>% 
   clean_names() # change column names to lower snake case
+```
 
-# -------------------------------------------------------
+I thought it might be beneficial to save each year that match the rasters separately just in case we want to plot all rasters separately. I also did this for the sf file.
+
+```{r}
 # select years 2003, 2008, 2013, 2018 and save to separate data files
 # 2003 fish ddt concentrations
 ddt_fish_2003 <- ddt_fish_clean %>% 
@@ -95,9 +83,7 @@ ddt_fish_2013 <- ddt_fish_clean %>%
 # 2018 fish ddt concentrations
 ddt_fish_2018 <- ddt_fish_clean %>% 
   filter(year == 2018)
-```
 
-```{r}
 # -------------------------------------------------------
 # select years for sf file 
 ddt_sf_2003 <- ddt_sf_clean %>% 
@@ -116,40 +102,31 @@ ddt_sf_2013 <- ddt_sf_clean %>%
   filter(year == 2018)
 ```
 
-### Visualize rasters with tmap
+### Working with the rasters
+
+I created a raster stack to take a mean between all the rasters to plot, so we could only have one visualization instead of 4.
+
+I then changed the CRS to EPSG 4326 also to match the fish DDT data.
 
 ```{r}
-# convert to df
-sed_df <- as.data.frame(mean_sed_stack, xy = TRUE)
+# create raster stack
+sed_stack <- c(sed_2003,
+               sed_2008,
+               sed_2013,
+               sed_2018)
 
-#myLocation <- c(lon = 119, lat = 34)
+# get mean from these years
+mean_sed_stack <- app(sed_stack, fun = mean)
 
-#myMap <- get_stadiamap(location=myLocation)
-
-ggplot() +
-  geom_raster(data = sed_df, mapping = aes(x = x, y = y, fill = mean)) +
-  geom_sf(data = ddt_sf_clean, mapping = aes(fill = total_ddt)) +
-  theme_minimal() +
-  labs(title = "DDT Concentrations", x = "Longitude", y = "Latitude", fill = "[DDT] Sediment")
-
-ggplot() +
-  geom_raster(data = sed_df, mapping = aes(x = x, y = y, fill = mean)) +
-  geom_point(data = ddt_fish_clean, mapping = aes(x = composite_target_longitude, y = composite_target_latitude, fill = total_ddt)) +
-  theme_minimal() 
+# now change crs of this to same as rasters
+mean_sed_stack <- project(mean_sed_stack, "EPSG:4326")
 ```
 
-Plotted all of the rasters separately. Trying to change alpha, so we can kinda see through to basemap. col_alpha = tm_const() \<- how do we use this???
+# Visualizing sediment DDT concentration rasters
+
+These are each separate sediment raster maps from each year.
 
 ```{r}
-# general mean sed stack and all points
-tm_shape(mean_sed_stack) +
-  tm_raster() +
-  tm_shape(ddt_sf_clean) +
-  tm_dots("total_ddt",
-          col.scale = tm_scale(values = "slateblue4", "slateblue3", "slateblue2","slateblue1")) +
-  tm_basemap("OpenStreetMap") +
-  tm_title("DDT Concentrations") 
-
 # 2003 map
 tm_shape(sed_2003) +
   tm_raster() +
@@ -175,27 +152,76 @@ tm_shape(sed_2018) +
   tm_title("2018 DDT Sediment Concentrations") 
 ```
 
-### Visualize DDT Concentrations over time
+# Visualizing fish DDT Concentrations 
 
-Just plotted total DDT concentrations over time. Again, not sure what each variable is, so not sure if this visualization even makes sense.
+Just plotted total DDT concentrations over time.
 
 ```{r}
+# scatterplot of fish DDT concentrations over time
 ggplot(ddt_fish_clean) +
   geom_point(aes(x = year, y = total_ddt)) +
   theme_minimal() +
   labs(title = "DDT Concentration in Fish Over Time") 
 ```
 
-Was trying to look at fish ddt concentrations spatially, but having trouble.
+This is a scatterplot of fish DDT concentrations by location.
 
 ```{r}
+# scatterplot of fish DDT concentration by location.
 ggplot(ddt_fish_clean) +
   geom_point(aes(x = composite_target_longitude, y = composite_target_latitude, color = total_ddt)) + theme_minimal() +
-  labs(title = "Fish DDT concentration?")
+  labs(title = "Fish DDT concentration?",
+       x = "Longitude",
+       y = "Latitude")
 ```
 
-### More visualizations to make...
+# Visualize sediment and fish DDT together
 
-Total DDT concentrations spatially. \* Need to know what each variable means
+### Using ggplot:
 
-Once we understand the variables we can understand which visualizations will be good to use.
+To plot the sf file with ggplot, I needed to convert it to a dataframe. I did this using `as.data.frame()`. I plotted the raster and then plotted the points for fish DDT using geom_sf, and then tried with geom_point to see if it was easier to update aesthetics.
+
+***Problems***: The problem that I had was trying to update the aesthetics for colors that changed the points, but not the raster or vice versa. Also, even though I put `fill = total_ddt` in the aesthetics, the points were not colored by total_ddt values :(.
+
+```{r}
+# convert to df
+sed_df <- as.data.frame(mean_sed_stack, xy = TRUE)
+
+# first plot using geom_sf
+ggplot() +
+  geom_raster(data = sed_df, 
+              mapping = aes(x = x, y = y, fill = mean)) +
+  geom_sf(data = ddt_sf_clean, 
+          mapping = aes(fill = total_ddt)) +
+  theme_minimal() +
+  labs(title = "DDT Concentrations", 
+       x = "Longitude", 
+       y = "Latitude", 
+       fill = "[DDT] Sediment")
+
+# second plot using geom_point
+ggplot() +
+  geom_raster(data = sed_df, 
+              mapping = aes(x = x, y = y, fill = mean)) +
+  geom_point(data = ddt_fish_clean, 
+             mapping = aes(x = composite_target_longitude, y = composite_target_latitude, fill = total_ddt)) +
+  theme_minimal() 
+```
+
+### Using Tmap:
+
+I plotted the mean raster with the whole fish DDT file.
+
+***Problems***: I couldn't change the colors for this one as well. The points completely blend into the raster :(.
+```{r}
+# general mean sed stack and all points
+tm_shape(mean_sed_stack) +
+  tm_raster() +
+  tm_shape(ddt_sf_clean) +
+  tm_dots("total_ddt",
+          col.scale = tm_scale(values = "slateblue4", "slateblue3", "slateblue2","slateblue1")) +
+  tm_basemap("OpenStreetMap") +
+  tm_title("DDT Concentrations") 
+```
+
+
