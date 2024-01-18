@@ -46,7 +46,8 @@ ddt_fish <- na.omit(ddt_fish)
 
 ### Working with fish DDT data first:
 
-I converted ddt fish concentrations to an sf file so I can plot it with the rasters later. I just set the EPSG to 4326 for no specific reason. 
+I converted ddt fish concentrations to an sf file so I can plot it with the rasters later. I just set the EPSG to 4326 for no specific reason.
+
 ```{r}
 # convert ddt fish concentrations to sf 
 ddt_fish_sf <- st_as_sf(ddt_fish, coords = c("CompositeTargetLongitude", "CompositeTargetLatitude"), crs = st_crs(4326))
@@ -152,7 +153,7 @@ tm_shape(sed_2018) +
   tm_title("2018 DDT Sediment Concentrations") 
 ```
 
-# Visualizing fish DDT Concentrations 
+# Visualizing fish DDT Concentrations
 
 Just plotted total DDT concentrations over time.
 
@@ -213,6 +214,7 @@ ggplot() +
 I plotted the mean raster with the whole fish DDT file.
 
 ***Problems***: I couldn't change the colors for this one as well. The points completely blend into the raster :(.
+
 ```{r}
 # general mean sed stack and all points
 tm_shape(mean_sed_stack) +
@@ -223,5 +225,3 @@ tm_shape(mean_sed_stack) +
   tm_basemap("OpenStreetMap") +
   tm_title("DDT Concentrations") 
 ```
-
-
