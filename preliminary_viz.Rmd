@@ -186,26 +186,33 @@ To plot the sf file with ggplot, I needed to convert it to a dataframe. I did th
 
 ```{r}
 # convert to df
-sed_df <- as.data.frame(mean_sed_stack, xy = TRUE)
+sed_df <- as.data.frame(mean_sed_stack, 
+                        xy = TRUE)
 
 # first plot using geom_sf
 ggplot() +
   geom_raster(data = sed_df, 
-              mapping = aes(x = x, y = y, fill = mean)) +
+              mapping = aes(x = x, 
+                            y = y,
+                  fill = mean)) + # assign fill
   geom_sf(data = ddt_sf_clean, 
-          mapping = aes(fill = total_ddt)) +
+          mapping = aes(color = total_ddt)) + # use color because fill was already used for raster
+  scale_fill_gradient(low = "#9FBBD0FF", high = "#2B5C8AFF") + # color gradient for DDT concentrations in sediment
+  scale_color_gradient(low = "#FFB900FF", high = "#1A2814FF") + # color gradient for points
   theme_minimal() +
   labs(title = "DDT Concentrations", 
        x = "Longitude", 
        y = "Latitude", 
-       fill = "[DDT] Sediment")
+       fill = "Sediment Concentrations",
+       color = "Average DDT in tissue \nwet weight (ng/g)") # Average DDT for each composite \nin ng/g tissue wet weight
 
 # second plot using geom_point
 ggplot() +
   geom_raster(data = sed_df, 
               mapping = aes(x = x, y = y, fill = mean)) +
   geom_point(data = ddt_fish_clean, 
-             mapping = aes(x = composite_target_longitude, y = composite_target_latitude, fill = total_ddt)) +
+             mapping = aes(x = composite_target_longitude, 
+                           y = composite_target_latitude, fill = total_ddt)) +
   theme_minimal() 
 ```
 
