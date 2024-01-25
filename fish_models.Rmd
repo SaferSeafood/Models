@@ -63,14 +63,17 @@ fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv"
                                              trophic_category == "tertiary_carnivore" ~ "Tertiary Carnivore")) 
   
 # Add transformed columns (TotalDDT.lipid is already normalized by Lipid for fish)
-fish_reg$TotalDDT.trans = log(fish_reg$TotalDDT.lipid + 1)
+# fish_reg$TotalDDT.trans = log(fish_reg$TotalDDT.lipid + 1)
+# fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
+# Add transformed columns (TotalDDT.lipid is already normalized by Lipid for fish)
+fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1)
 fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
 
 # Add censoring for values equal to zero (so value is constrained to fall between zero and MDL)
-fish_reg = fish.reg %>% 
-  dplyr::mutate(Censored = ifelse(TotalDDT.trans == 0, "interval","none"), 
-                Detection.Limit = ifelse(is.na(MDL.min), 0.5,log1p(MDL.min/Lipid))) %>% 
-  dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
+# fish_reg = fish_reg %>% 
+#   dplyr::mutate(Censored = ifelse(TotalDDT.trans == 0, "interval","none"), 
+#                 Detection.Limit = ifelse(is.na(MDL.min), 0.5,log1p(MDL.min/Lipid))) %>% 
+#   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
 
 
 ##################################################################################################################
@@ -80,8 +83,8 @@ fish_reg = fish.reg %>%
 fish_reg %>% 
   dplyr::mutate(feeding_position = factor(feeding_position, 
                                           levels=c("Benthic","Benthopelagic","Midwater","Pelagic"))) %>% 
-  ggplot(mapping=aes(x=TotalDDT.sed, # ddt concentration in sediment 
-                     y=TotalDDT.lipid, # ddt concentration in lipids
+  ggplot(mapping=aes(x=TotalDDT.sed.trans, # ddt concentration in sediment 
+                     y=TotalDDT.trans.non, # ddt concentration in lipids
                      fill= trophic_category )) +
   geom_jitter(size=1.5, pch=21) +
   ylab("[DDXfish] ng/g lipid") +
@@ -91,4 +94,38 @@ fish_reg %>%
   theme_bw() +
   theme(legend.position = "none")
 ```
+
+# Some simple modeling 
+
+To understand Baysian modeling: https://www.r-bloggers.com/2019/05/bayesian-models-in-r-2/
+
+## Exploring the variables 
+```{r}
+library(tidyverse)
+
+fish_reg %>% 
+  ggplot(aes(x = TotalDDT.sed.trans, 
+             y = TotalDDT.trans.non)) +
+  geom_point() +
+  geom_smooth(method = lm, # line model
+              formula = y ~ x, # specify polynomial line
+              color = "orange", 
+              linewidth = 1.2, 
+              se = FALSE) +
+  labs(x = "Total DDT in sediment (transformed)",
+       y = "Total DDT in transformed data (non-lipid normalized)") +
+  theme_classic()
+
+
+```
+
+
+```{r}
+
+lm(TotalDDT.trans.non ~ TotalDDT.sed.trans + trophic_category, data = fish_reg) %>% 
+  summary()
+
+
+```
+
 
