@@ -62,18 +62,20 @@ fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv"
                                              trophic_category == "secondary_carnivore" ~ "Secondary Carnivore",
                                              trophic_category == "tertiary_carnivore" ~ "Tertiary Carnivore")) 
   
-# Add transformed columns (TotalDDT.lipid is already normalized by Lipid for fish)
-# fish_reg$TotalDDT.trans = log(fish_reg$TotalDDT.lipid + 1)
-# fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
-# Add transformed columns (TotalDDT.lipid is already normalized by Lipid for fish)
-fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1)
+# Add transformed columns (TotalDDT which is non-lipid normalized for fish)
+fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1) # add +1 to account for 0 values
 fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
 
 # Add censoring for values equal to zero (so value is constrained to fall between zero and MDL)
-# fish_reg = fish_reg %>% 
-#   dplyr::mutate(Censored = ifelse(TotalDDT.trans == 0, "interval","none"), 
-#                 Detection.Limit = ifelse(is.na(MDL.min), 0.5,log1p(MDL.min/Lipid))) %>% 
-#   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
+fish_reg = fish_reg %>% 
+   dplyr::mutate(Censored = ifelse(TotalDDT.trans.non == 0, "interval","none"), 
+                 
+                 # ask about this limit since its divided by Lipid
+                 Detection.Limit = ifelse(is.na(MDL.min), 
+                                          0.5, # if MDL.min is an NA value fill with this value
+                                          log1p(MDL.min))) %>% 
+  
+   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
 
 
 ##################################################################################################################
@@ -84,7 +86,7 @@ fish_reg %>%
   dplyr::mutate(feeding_position = factor(feeding_position, 
                                           levels=c("Benthic","Benthopelagic","Midwater","Pelagic"))) %>% 
   ggplot(mapping=aes(x=TotalDDT.sed.trans, # ddt concentration in sediment 
-                     y=TotalDDT.trans.non, # ddt concentration in lipids
+                     y=TotalDDT.trans.non, # ddt concentration in fish
                      fill= trophic_category )) +
   geom_jitter(size=1.5, pch=21) +
   ylab("[DDXfish] ng/g lipid") +
@@ -119,13 +121,54 @@ fish_reg %>%
 
 ```
 
+# Attempt at using machine learning model 
+- did not work lol
 
-```{r}
+```{reval = FALSE}
 
-lm(TotalDDT.trans.non ~ TotalDDT.sed.trans + trophic_category, data = fish_reg) %>% 
-  summary()
+library(tidyverse)
+library(rsample)
+library(glmnet)
+library(skimr)
+
+set.seed(123)
+
+fish_clean <- fish_reg %>% 
+  dplyr::select(-c(MDL.mean, MDL.min))
+
+# -----------------------
+# Split the data 
+# -----------------------
+fish_split <- initial_split(fish_clean)
+fish_split
+# -----------------------
+# Train and test data 
+# -----------------------
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
+
+# -----------------------
+# Model parameters 
+# -----------------------
+
+#Create training feature matrices using model.matrix() (auto encoding of categorical variables)
+X <- model.matrix(TotalDDT ~ TotalDDT.sed.trans + , 
+                  data = fish_train) # make all variables predictors
+
+# transform y with log() transformation
+Y <- log(fish_train$TotalDDT)
 
 
+# -----------------------
+# Regressions
+# -----------------------
+
+#fit a ridge model, passing X,Y,alpha to glmnet()
+ridge <- glmnet(
+  x = X,
+  y = Y,
+  alpha = 0 # tells if you want function to be ridge (0), lasso (1)
+)
 ```
 
 
