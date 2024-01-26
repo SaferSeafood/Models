@@ -63,7 +63,7 @@ fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv"
                                              trophic_category == "tertiary_carnivore" ~ "Tertiary Carnivore")) 
   
 # Add transformed columns (TotalDDT which is non-lipid normalized for fish)
-fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1) # add +1 to account for 0 values
+fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1) # add + 1 to account for 0 values
 fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
 
 # Add censoring for values equal to zero (so value is constrained to fall between zero and MDL)
@@ -118,13 +118,12 @@ fish_reg %>%
        y = "Total DDT in transformed data (non-lipid normalized)") +
   theme_classic()
 
-
 ```
 
-# Attempt at using machine learning model 
-- did not work lol
+# Attempt at using machine learning model
+- The glmnet() plot is not meaningful lol
 
-```{reval = FALSE}
+```{r}
 
 library(tidyverse)
 library(rsample)
@@ -152,11 +151,11 @@ fish_test <- testing(fish_split)
 # -----------------------
 
 #Create training feature matrices using model.matrix() (auto encoding of categorical variables)
-X <- model.matrix(TotalDDT ~ TotalDDT.sed.trans + , 
+X <- model.matrix(TotalDDT ~ TotalDDT.sed.trans, 
                   data = fish_train) # make all variables predictors
 
 # transform y with log() transformation
-Y <- log(fish_train$TotalDDT)
+Y <- fish_train$TotalDDT.trans.non
 
 
 # -----------------------
@@ -164,11 +163,86 @@ Y <- log(fish_train$TotalDDT)
 # -----------------------
 
 #fit a ridge model, passing X,Y,alpha to glmnet()
-ridge <- glmnet(
+lasso <- glmnet(
   x = X,
   y = Y,
-  alpha = 0 # tells if you want function to be ridge (0), lasso (1)
+  alpha = 1 # tells if you want function to be ridge (0), lasso (1)
 )
+
+plot(lasso, xvar = "lambda") 
 ```
 
+# Run BRMS Models 
+
+Why BRMS?
+
+```{r}
+##################################################################################################################
+################### Run BRMS Models   ###################
+##################################################################################################################
+
+# Look at best structure for model 
+brm.none = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, 
+               data = fish_reg, 
+               prior = c(set_prior("cauchy(0, 0.5)", 
+                                   class = "b")))
+
+brm.habitat.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, 
+                        data = fish_reg, 
+                        prior = c(set_prior("cauchy(0, 0.5)", 
+                                            class = "b")))
+
+brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
+                            data =  fish_reg, 
+                            prior = c(set_prior("cauchy(0, 0.5)", 
+                                                class = "b")))
+
+brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
+                     data =fish_reg, 
+                     prior = c(set_prior("cauchy(0, 0.5)", 
+                                         class = "b")))
+
+brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
+                         data =fish_reg, 
+                         prior = c(set_prior("cauchy(0, 0.5)", 
+                                             class = "b")))
+
+brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category, 
+                  data =fish_reg, 
+                  prior = c(set_prior("cauchy(0, 0.5)", 
+                                      class = "b")))
+
+brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position, 
+                  data =fish_reg, 
+                  prior = c(set_prior("cauchy(0, 0.5)", 
+                                      class = "b")))
+
+brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
+                         TotalDDT.sed.trans * feeding_position, 
+                       data =fish_reg, 
+                       prior = c(set_prior("cauchy(0, 0.5)", 
+                                           class = "b")))
+
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
+                              TotalDDT.sed.trans * feeding_position + Year, 
+                            data =fish_reg, 
+                            prior = c(set_prior("cauchy(0, 0.5)", 
+                                                class = "b")))
+
+brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
+                                 TotalDDT.sed.trans * feeding_position  +
+                                 (1|CompositeCommonName), 
+                               data =fish_reg, 
+                               prior = c(
+                                 set_prior("cauchy(0, 0.5)", class = "b"),   
+                                 set_prior("cauchy(0, 2)", class = "sd")))
+
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
+                                      TotalDDT.sed.trans * feeding_position + Year + 
+                                      (1|CompositeCommonName), 
+                                    data =fish_reg, 
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),   
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+```
 
