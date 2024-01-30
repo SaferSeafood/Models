@@ -14,9 +14,10 @@ Task: Combine sediment and fish data in a nice, easy to work with dataframe, and
 # install and/or load the necessary R packages
 if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
 pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
-               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,
-               INLAutils, marmap,sjPlot,rgeos, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
-               DHARMa, DHARMa.helpers)
+               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+               DHARMa)
+               #rgeos, INLAutils, DHARMa.helpers)
+
 ```
 
 
@@ -41,13 +42,18 @@ sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_
 fish_lh = read.csv(here::here("data","fish_data","fish_life_history.csv")) %>% 
   dplyr::mutate(species = tolower(species))
 
+# select station area
+fish_location = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv")) %>% 
+  dplyr::select(CompositeCompositeID, CompositeStationArea)
+
 # Read in fish data, and join with sediments 
-fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv")) %>% # Read in fish DDT values 
+fish_reg = read.csv(here::here("data","fish_data","totalDDT_fish_southernCA.csv")) %>% # Read in fish DDT values 
   # We have sediment data blocked off by 2003, 2008, 2013, and 2018. Figure out what (continous) fish years go with which sediment years. 
   dplyr::mutate(NewYear = case_when(Year %in% c(1995:2005) ~ "2003", 
                                     Year %in% c(2006:2010) ~ "2008", 
                                     Year %in% c(2011:2015) ~ "2013", 
                                     Year %in% c(2016:2022) ~ "2018")) %>% 
+  left_join(., fish_location) %>% 
   left_join(., sediment_summary, by=c("CompositeStationArea"="Name", 
                                       "NewYear"="Year")) %>% 
   dplyr::left_join(., fish_lh, by=c("CompositeCommonName"="species")) %>% 
