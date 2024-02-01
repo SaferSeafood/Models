@@ -42,12 +42,12 @@ sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_
 fish_lh = read.csv(here::here("data","fish_data","fish_life_history.csv")) %>% 
   dplyr::mutate(species = tolower(species))
 
-# select station area
-fish_location = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv")) %>% 
-  dplyr::select(CompositeCompositeID, CompositeStationArea)
+# select the long and latitude
+fish_location = read.csv(here::here("data","fish_data","totalDDT_fish_southernCA.csv")) %>% 
+  dplyr::select(CompositeCompositeID, CompositeTargetLatitude, CompositeTargetLongitude)
 
 # Read in fish data, and join with sediments 
-fish_reg = read.csv(here::here("data","fish_data","totalDDT_fish_southernCA.csv")) %>% # Read in fish DDT values 
+fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv")) %>% # Read in fish DDT values 
   # We have sediment data blocked off by 2003, 2008, 2013, and 2018. Figure out what (continous) fish years go with which sediment years. 
   dplyr::mutate(NewYear = case_when(Year %in% c(1995:2005) ~ "2003", 
                                     Year %in% c(2006:2010) ~ "2008", 
@@ -223,32 +223,45 @@ brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.
                   prior = c(set_prior("cauchy(0, 0.5)", 
                                       class = "b")))
 
-brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
-                         TotalDDT.sed.trans * feeding_position, 
+brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position, 
                        data =fish_reg, 
                        prior = c(set_prior("cauchy(0, 0.5)", 
                                            class = "b")))
 
-brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
-                              TotalDDT.sed.trans * feeding_position + Year, 
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
                             data =fish_reg, 
                             prior = c(set_prior("cauchy(0, 0.5)", 
                                                 class = "b")))
 
-brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
-                                 TotalDDT.sed.trans * feeding_position  +
-                                 (1|CompositeCommonName), 
+brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position  + (1|CompositeCommonName), 
                                data =fish_reg, 
                                prior = c(
                                  set_prior("cauchy(0, 0.5)", class = "b"),   
                                  set_prior("cauchy(0, 2)", class = "sd")))
 
-brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
-                                      TotalDDT.sed.trans * feeding_position + Year + 
-                                      (1|CompositeCommonName), 
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
                                     data =fish_reg, 
                                     prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b"),   
                                       set_prior("cauchy(0, 2)", class = "sd")))
 ```
+
+# Cross validation 
+
+Information about understandingg leave one out cross validation (LOO): https://iopscience.iop.org/article/10.3847/1538-3881/acab67#:~:text=The%20elpdLOO%20score%20quantifies,model%20under%20the%20chosen%20prior.
+
+Higher elpd means higher predictive accuracy:
+- When you compare across these models, the model that includes diet, habitat, species, and year has the largest elpd_loo value, indicating that it has better predicitve accuracy. 
+
+```{r}
+# Compare LOOIC
+LOO.results = LOO(brm.none, brm.habitat.slope,brm.habitat, 
+                  brm.habitat.intercept,
+                  brm.diet.slope,brm.diet.intercept,brm.trophic,
+                  brm.diet.habitat,brm.diet.habitat.year, 
+                  brm.diet.habitat.species, brm.diet.habitat.species.year)
+
+mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
+```
+
 
