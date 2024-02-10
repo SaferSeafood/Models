@@ -1,0 +1,117 @@
+# Load Packages
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(skimr)
+library(tidymodels)
+library(caret)
+# Load the corrplot package
+library(corrplot)
+library(sjPlot)
+
+if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
+pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
+               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+               DHARMa)
+```
+
+# Set up with clean data
+```{r, message = FALSE}
+# load in the cleaned data with transformed variables 
+fish_clean <- read_csv(here::here("data", "fish_clean.csv"))
+
+# load in the life hsitory characteristics
+fish_lh <- read_csv(here::here("data", "fish_data", "fish_life_history.csv"))
+
+```
+
+The life history characteristics of interest are the trophic level, trophic category, and the feeding position.   
+
+# Testing different models using Machine learning
+
+## Split the data 
+```{r}
+set.seed(425)
+fish_split <- initial_split(fish_clean)
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
+
+```
+
+## Load the models of interest 
+
+### Their model with `TotalDDT.trans` variable which is transformed DDT concentrations that have been lipid-normalized. This is the baseline accuracy that we are testing. 
+```{r}
+fish_clean_original <- read_csv(here::here("data", "fish_clean_ORIGINAL.csv"))
+
+brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                      TotalDDT.sed.trans * feeding_position + Year +
+                                      (1|CompositeCommonName), data = fish_clean_original,
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+
+loo(brm.diet.habitat.species.year.original)
+bayes_R2(brm.diet.habitat.species.year.original)
+
+```
+
+
+### Our models with the `TotalDDT.trans.non` variable which is transformed DDT concentration, that has not been lipid normalized. 
+```{r}
+
+# using species 
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
+                                    data = fish_train, 
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),   
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+
+# removing species from the model 
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
+                            data = fish_train, 
+                            prior = c(
+                              set_prior("cauchy(0, 0.5)", class = "b")#,   
+                              #set_prior("cauchy(0, 2)", class = "sd"))
+                            ))
+
+
+# with tropic level
+brm.diet.habitat.tropic.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + tropic_level + Year, 
+                                    data = fish_train, 
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b")))
+
+fish_train %>% 
+  ggplot(aes(x = tropic_level, y = trophic_category)) +
+  geom_point()
+```
+
+## Set up cross-validation to test model accuracy 
+
+```{r}
+summary(brm.diet.habitat.species.year)
+bayes_R2(brm.diet.habitat.species.year)
+loo(brm.diet.habitat.species.year)
+
+loo(brm.diet.habitat.species.year, brm.diet.habitat.year, brm.diet.habitat.tropic.year)
+```
+
+Perforn kfold cross validation on each model, and output the rmse. 
+
+```{r}
+
+kf <- kfold(brm.diet.habitat.year, save_fits = TRUE, chains = 1)
+
+# define a loss function
+rmse <- function(y, yrep) {
+yrep_mean <- colMeans(yrep)
+sqrt(mean((yrep_mean - y)^2))
+}
+
+kfp <- kfold_predict(kf)
+rmse(y = kfp$y, yrep = kfp$yrep)
+```
+
+### Select the model that performs the best
+
