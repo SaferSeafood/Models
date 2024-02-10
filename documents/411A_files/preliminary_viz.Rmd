@@ -29,14 +29,14 @@ Unsure what the .gri files are, but were not able to read it in with `rast()`.
 
 ```{r}
 # read in sea sediment raster data as separate rasters
-sed_2003 <- rast("data/sediment_data/sediment_rasters/sediment_totalDDT_2003.grd")
-sed_2008 <- rast("data/sediment_data/sediment_rasters/sediment_totalDDT_2008.grd")
-sed_2013 <- rast("data/sediment_data/sediment_rasters/sediment_totalDDT_2013.grd")
-sed_2018 <- rast("data/sediment_data/sediment_rasters/sediment_totalDDT_2018.grd")
+sed_2003 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
+sed_2008 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
+sed_2013 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
+sed_2018 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
 
 # -------------------------------------------------------------------
 # read in fish ddt concentration data
-ddt_fish <- read_csv("data/fish_data/totalDDT_fish_SouthernCA.csv") 
+ddt_fish <- read_csv(here::here("data", "fish_data", "totalDDT_fish_SouthernCA.csv"))
 
 # remove na values for ease of future
 ddt_fish <- na.omit(ddt_fish)
