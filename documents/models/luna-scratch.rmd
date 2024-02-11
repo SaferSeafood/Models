@@ -1,5 +1,6 @@
 # Load Packages
-```{r}
+
+```{r message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(skimr)
@@ -8,6 +9,7 @@ library(caret)
 # Load the corrplot package
 library(corrplot)
 library(sjPlot)
+library(rstanarm)
 
 if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
 pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
@@ -16,6 +18,7 @@ pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster,
 ```
 
 # Set up with clean data
+
 ```{r, message = FALSE}
 # load in the cleaned data with transformed variables 
 fish_clean <- read_csv(here::here("data", "fish_clean.csv"))
@@ -23,13 +26,26 @@ fish_clean <- read_csv(here::here("data", "fish_clean.csv"))
 # load in the life hsitory characteristics
 fish_lh <- read_csv(here::here("data", "fish_data", "fish_life_history.csv"))
 
+# Read in sediment data 
+sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_zone_summary.rds")) %>%
+  dplyr::select(Name, Est.2003, Est.2008, Est.2013, Est.2018) %>% 
+  gather(key="Year",value="TotalDDT",Est.2003:Est.2018) %>% 
+  dplyr::mutate(Year = case_when(Year == "Est.2003" ~ "2003",
+                                 Year == "Est.2008" ~ "2008",
+                                 Year == "Est.2013" ~ "2013",
+                                 Year == "Est.2018" ~ "2018")) %>% 
+  dplyr::group_by(Name, Year) %>%
+  dplyr::summarize(TotalDDT.sed = (mean((TotalDDT)))) %>%
+  dplyr::ungroup() 
+
 ```
 
-The life history characteristics of interest are the trophic level, trophic category, and the feeding position.   
+The life history characteristics of interest are the trophic level, trophic category, and the feeding position.
 
 # Testing different models using Machine learning
 
-## Split the data 
+## Split the data
+
 ```{r}
 set.seed(425)
 fish_split <- initial_split(fish_clean)
@@ -38,9 +54,10 @@ fish_test <- testing(fish_split)
 
 ```
 
-## Load the models of interest 
+## Load the models of interest
 
-### Their model with `TotalDDT.trans` variable which is transformed DDT concentrations that have been lipid-normalized. This is the baseline accuracy that we are testing. 
+### Their model with `TotalDDT.trans` variable which is transformed DDT concentrations that have been lipid-normalized. This is the baseline accuracy that we are testing.
+
 ```{r}
 fish_clean_original <- read_csv(here::here("data", "fish_clean_ORIGINAL.csv"))
 
@@ -54,10 +71,44 @@ brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detec
 loo(brm.diet.habitat.species.year.original)
 bayes_R2(brm.diet.habitat.species.year.original)
 
+# make predictions
+cvvs <- loo_predict(brm.diet.habitat.species.year.original)
+
+fish_clean_original %>% 
+  mutate(prediction = cvvs) %>% 
+  ggplot(aes(x = TotalDDT.trans, 
+                 y = prediction)) +
+  geom_point() +
+  geom_smooth(method = "glm")
 ```
 
+### Prediction values
 
-### Our models with the `TotalDDT.trans.non` variable which is transformed DDT concentration, that has not been lipid normalized. 
+This will be the body of the function that predicts DDT concentrations using user inputs. Data will be drawn from life history dataframe, as well as possible sources for sediment concentration. /
+
+Questions to consider:
+
+\- How to read the output if the variables are logged?
+
+\- Do we have to transform them so that they make sense?
+
+\- Currently the output is a negative number, this doesn't feel like it makes sense.
+
+\- When collecting samples, were the fish at maturity/ at fishing standard? If this is the case, then we could add a predictor variable of size, since there are laws that limit catch size and could inform DDT concentration.
+
+```{r}
+# Example output of specific DDT concentration using the model
+predict(brm.diet.habitat.species.year.original, 
+        data.frame(CompositeCommonName = "barred sand bass", # grab from df
+                   TotalDDT.sed.trans = 0.009889753, # get from fishing zone
+                   trophic_category = "Tertiary Carnivore", # get from life history characteristics
+                   feeding_position = "Benthopelagic", # get from life history characteristics
+                   Year = 2050))
+
+```
+
+### Our models with the `TotalDDT.trans.non` variable which is transformed DDT concentration, that has not been lipid normalized.
+
 ```{r}
 
 # using species 
@@ -87,17 +138,19 @@ fish_train %>%
   geom_point()
 ```
 
-## Set up cross-validation to test model accuracy 
+## Set up cross-validation to test model accuracy
 
 ```{r}
 summary(brm.diet.habitat.species.year)
 bayes_R2(brm.diet.habitat.species.year)
 loo(brm.diet.habitat.species.year)
 
-loo(brm.diet.habitat.species.year, brm.diet.habitat.year, brm.diet.habitat.tropic.year)
+loo(brm.diet.habitat.species.year, 
+    brm.diet.habitat.year, 
+    brm.diet.habitat.tropic.year)
 ```
 
-Perforn kfold cross validation on each model, and output the rmse. 
+Perforn kfold cross validation on each model, and output the rmse.
 
 ```{r}
 
@@ -115,3 +168,7 @@ rmse(y = kfp$y, yrep = kfp$yrep)
 
 ### Select the model that performs the best
 
+## Next steps
+
+1.  We have confirmed the model that predicts the DDT concentration in fish based on life history characteristics
+2.  Create function
