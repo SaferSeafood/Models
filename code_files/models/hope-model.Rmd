@@ -208,21 +208,6 @@ brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.
                                       set_prior("cauchy(0, 2)", class = "sd")))
 ```
 
-### Run BRMS Models
-
-Higher elpd means higher predictive accuracy:
-- When you compare across these models, the model that includes diet, habitat, species, and year has the largest elpd_loo value, indicating that it has better predicitve accuracy. 
-
-```{r}
-# Compare LOOIC
-LOO.results = LOO(brm.none, brm.habitat.slope,brm.habitat, 
-                  brm.habitat.intercept,
-                  brm.diet.slope,brm.diet.intercept,brm.trophic,
-                  brm.diet.habitat,brm.diet.habitat.year, 
-                  brm.diet.habitat.species, brm.diet.habitat.species.year)
-
-mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
-```
 
 ## Creating a function to add covariates 
 
@@ -231,6 +216,9 @@ mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, 
 * Create function in order to add covariates and test models with ease
 
 ```{r}
-
+update_models <- function(covariate) {
+  fish_reg
+  
+}
 ```
 

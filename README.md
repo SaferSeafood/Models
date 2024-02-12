@@ -25,6 +25,6 @@ The structure of the repo is as follows:
 >       │ fish_data
 >       │ sediment_data
 >       │ data_outputs
-> └───documents
+> └───code_files
 >       │ 411A_files
 >       │ models
