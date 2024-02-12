@@ -33,7 +33,7 @@ Fish DDT data contains total DDT concentration, lipid normalized DDT data, and o
 * Bayesian modeling
 
 ***My Code***
-* create function to take fish and 
+* testing regression with recipes and stuff
 
 ## Regress fish [DDT] against sediment [DDT]
 
@@ -132,51 +132,51 @@ prior = c(set_prior("cauchy(0, 0.5)",
 class = "b")))
 
 brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
-data =  fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =  fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
-data =fish_reg, 
-prior = c(set_prior("cauchy(0, 0.5)", 
-class = "b")))
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
 
 brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position  + (1|CompositeCommonName), 
-data =fish_reg, 
-prior = c(
-set_prior("cauchy(0, 0.5)", class = "b"),   
-set_prior("cauchy(0, 2)", class = "sd")))
+  data =fish_reg, 
+  prior = c(
+  set_prior("cauchy(0, 0.5)", class = "b"),   
+  set_prior("cauchy(0, 2)", class = "sd")))
 
 brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
-data =fish_reg, 
-prior = c(
-set_prior("cauchy(0, 0.5)", class = "b"),   
-set_prior("cauchy(0, 2)", class = "sd")))
+  data =fish_reg, 
+  prior = c(
+  set_prior("cauchy(0, 0.5)", class = "b"),   
+  set_prior("cauchy(0, 2)", class = "sd")))
 # --------------------------------------------------------------------------------------------------------------
 
 ## Trying some stuff out
@@ -196,7 +196,7 @@ fish_cleaned <- fish_reg %>%
 fish_formula <- brmsformula(total_ddt_trans_non|cens(censored, detection_limit) ~ total_ddt_sed_trans * trophic_category + total_ddt_sed_trans * feeding_position  + (1|composite_common_name)) 
 
 # split training and testing data
-fish_split <- fish_reg %>% 
+fish_split <- fish_cleaned %>% 
   initial_split(prop = 0.7)
 
 fish_train <- training(fish_split)
@@ -214,12 +214,12 @@ brm_fish_spec <- linear_reg() %>%
 
 # create workflow
 brm_wf <- workflow() %>% 
-  add_model(brm_fish_spec)
-
+  add_model(brm_fish_spec) %>% 
+  add_formula(total_ddt_trans_non ~ total_ddt_sed_trans * trophic_category + total_ddt_sed_trans * feeding_position)
+library('rstanarm')
 # Train the model
 brm_wf_fit <- brm_wf %>% 
-  fit(data = fish_train) %>% 
-  add_formula(fish_formula)
+  fit(data = fish_train) 
 
 # make predictions
 predictions <- brm_wf_fit %>% 
@@ -233,4 +233,3 @@ predictions <- brm_wf_fit %>%
 ```{r}
 
 ```
-
