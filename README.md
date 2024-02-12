@@ -22,3 +22,9 @@ The structure of the repo is as follows:
 > │   SaferSeafood.Rproj
 > │  .gitignore
 > └───data
+>       │ fish_data
+>       │ sediment_data
+>       │ data_outputs
+> └───documents
+>       │ 411A_files
+>       │ models
