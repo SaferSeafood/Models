@@ -1,0 +1,118 @@
+```{r}
+# Load required libraries
+library(tidyverse)
+library(brms) # For Bayesian regression modeling
+library(caret) # For model evaluation
+```
+
+```{r}
+# Data
+fish_clean <- read_csv(here::here("data", "fish_clean.csv"))
+
+fish_clean_original <- read_csv(here::here("data", "fish_clean_ORIGINAL.csv"))
+```
+
+```{r}
+# Define Bayesian model formulas
+# un # the model(s) you want to test
+formulas <- list(
+   #"none" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans,
+  
+   #"habitat_slope" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position,
+  
+   #"habitat_intercept" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position,
+  
+   #"diet_slope" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category,
+  
+   #"diet_intercept" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category,
+  
+   #"trophic" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category,
+  
+   #"habitat" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position,
+  
+   #"diet_habitat" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position,
+  
+   #"diet_habitat_year" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year,
+  
+   #"diet_habitat_species" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + (1|CompositeCommonName),
+  
+   "diet_habitat_species_year" = TotalDDT.trans.non | cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName)
+)
+```
+
+
+```{r}
+# Split data into training and testing sets for non-lipid normalized data
+set.seed(123) # for reproducibility
+split_non_lipid <- initial_split(fish_clean)
+train_data_non_lipid <- training(split_non_lipid)
+test_data_non_lipid <- testing(split_non_lipid)
+
+# Split data into training and testing sets for lipid-normalized data
+set.seed(123) # for reproducibility
+split_lipid <- initial_split(fish_clean_original)
+train_data_lipid <- training(split_lipid)
+test_data_lipid <- testing(split_lipid)
+
+```
+
+
+```{r}
+# Train and evaluate Bayesian models for non-lipid normalized data
+results_non_lipid <- list()
+for (model_name in names(formulas)) {
+  # Model using non-lipid normalized data
+  model_non_lipid <- brm(formulas[[model_name]], data = train_data_non_lipid)
+  
+  # Make predictions
+  predictions_non_lipid <- predict(model_non_lipid, newdata = test_data_non_lipid)
+  
+  # Evaluate model performance
+  mae_non_lipid <- caret::MAE(predictions_non_lipid, test_data_non_lipid$TotalDDT.trans.non)
+  
+  # Store results
+  results_non_lipid[[model_name]] <- list(
+    mae_non_lipid = mae_non_lipid
+  )
+}
+```
+
+
+```{r}
+# Train and evaluate Bayesian models for lipid-normalized data
+results_lipid <- list()
+for (model_name in names(formulas)) {
+  # Model using lipid-normalized data
+  model_lipid <- brm(formulas[[model_name]], data = train_data_lipid)
+  
+  # Make predictions
+  predictions_lipid <- predict(model_lipid, newdata = test_data_lipid)
+  
+  # Evaluate model performance
+  mae_lipid <- caret::MAE(predictions_lipid, test_data_lipid$TotalDDT.trans)
+  
+  # Store results
+  results_lipid[[model_name]] <- list(
+    mae_lipid = mae_lipid
+  )
+}
+```
+
+
+```{r}
+# Print results for non-lipid normalized data
+cat("Results for non-lipid normalized data:\n")
+for (model_name in names(results_non_lipid)) {
+  cat("Model:", model_name, "\n")
+  cat("MAE (Non-Lipid Normalized Data):", results_non_lipid[[model_name]]$mae_non_lipid, "\n\n")
+}
+
+# Print results for lipid-normalized data
+cat("Results for lipid-normalized data:\n")
+for (model_name in names(results_lipid)) {
+  cat("Model:", model_name, "\n")
+  cat("MAE (Lipid-Normalized Data):", results_lipid[[model_name]]$mae_lipid, "\n\n")
+}
+```
+
+
