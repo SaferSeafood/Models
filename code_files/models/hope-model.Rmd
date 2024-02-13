@@ -170,7 +170,6 @@ brm_wf <- workflow() %>%
   add_recipe(fish_recipe) %>% 
   add_model(brm_fish_spec) 
 
-
 library('rstanarm')
 
 # Train the model
