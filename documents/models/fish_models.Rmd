@@ -81,9 +81,11 @@ fish_reg = fish_reg %>%
                                           0.5, # if MDL.min is an NA value fill with this value
                                           log1p(MDL.min))) %>% 
   
-   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
+   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998
+```
 
 
+```{r}
 ##################################################################################################################
 ################### Plot non normalized fish against sediments   ###################
 ##################################################################################################################
