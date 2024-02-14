@@ -1,0 +1,21 @@
+﻿Variable,Definition
+CompositeCompositeID,Unique identifier for each fish composite
+TotalDDT,"Average DDX (summed DDT, DDD, and DDE values) for each composite in ng/g tissue wet weight "
+TotalDDT.lipid,"Average lipid normalized DDX (summed DDT, DDD, and DDE values) for each composite in ng/g lipid weight "
+MDL.mean,Average Method Detection Limit across the six DDX analytes 
+MDL.min,Minimum Method Detection Limit across the six DDX analytes 
+Lipid,Lipid content of each composite (in g Lipid/ g tissue wet weight) 
+CompositeCommonName,Common name for each fish species
+CompositeTissuePrep,How composite tissue was prepared for analysis 
+NumberFishPerComp,Number of fish that were pooled for a composite 
+CompositeTissueName,Tissue type. Whether whole fish or fillets were used. 
+WeightAvg.g,Average weight of each fish within a composite 
+TLMin.mm,Length of the smallest fish within a composite 
+TLMax.mm,Length of the lagest fish within a composite 
+TLAvgLength.mm,Average length of each fish within a composite 
+SexSummary,Summary of males and female fish within a composite 
+Program,Program each composite is originally from. See the proposal and manuscript for details of each program. 
+Year,Year of collection for each composite. 
+Region,Broad region of capture for each fish. 
+CompositeStationArea,"Fishing zone for each composite. This links sediment and fish data together, given that fish capture location is often not precisely known. Zone boundaries can be found in the pelagic_nearshoe_fish_zones.rds file"
+,
