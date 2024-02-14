@@ -105,6 +105,15 @@ predict(brm.diet.habitat.species.year.original,
                    feeding_position = "Benthopelagic", # get from life history characteristics
                    Year = 2050))
 
+fish_predict <- predict(brm.diet.habitat.species.year.original,
+                        fish_test) %>% 
+  bind_cols(fish_test)
+
+ggplot(data = fish_predict) +
+  geom_point(aes(x = TotalDDT.trans.non, y = Estimate))
+
+
+
 ```
 
 ### Our models with the `TotalDDT.trans.non` variable which is transformed DDT concentration, that has not been lipid normalized.
