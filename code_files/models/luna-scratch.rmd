@@ -21,7 +21,7 @@ pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster,
 
 ```{r, message = FALSE}
 # load in the cleaned data with transformed variables 
-fish_clean <- read_csv(here::here("data", "fish_clean.csv"))
+fish_clean <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
 
 # load in the life hsitory characteristics
 fish_lh <- read_csv(here::here("data", "fish_data", "fish_life_history.csv"))
@@ -59,7 +59,7 @@ fish_test <- testing(fish_split)
 ### Their model with `TotalDDT.trans` variable which is transformed DDT concentrations that have been lipid-normalized. This is the baseline accuracy that we are testing.
 
 ```{r}
-fish_clean_original <- read_csv(here::here("data", "fish_clean_ORIGINAL.csv"))
+fish_clean_original <- read_csv(here::here("data", "data_outputs", "fish_clean_ORIGINAL.csv"))
 
 brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
                                       TotalDDT.sed.trans * feeding_position + Year +
@@ -146,6 +146,21 @@ fish_train %>%
   ggplot(aes(x = tropic_level, y = trophic_category)) +
   geom_point()
 ```
+
+## Machine Learning Attempt 
+```{r}
+set.seed(425)
+fish_split_o <- initial_split(fish_clean_original)
+fish_train_o <- training(fish_split_o)
+fish_test_o <- testing(fish_split_o)
+
+fit_stan_glm <- 
+  stan_glmer(bf(TotalDDT.trans | cen_paired(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+             TotalDDT.sed.trans * feeding_position + Year +
+             (1|CompositeCommonName)), data = fish_train_o, refresh = 0, seed = 505)
+
+```
+
 
 ## Set up cross-validation to test model accuracy
 
