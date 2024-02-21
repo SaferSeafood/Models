@@ -11,6 +11,10 @@ library(corrplot)
 library(sjPlot)
 library(rstanarm)
 
+library(sf)
+library(terra)
+library(leaflet)
+
 if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
 pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
                MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
@@ -39,6 +43,20 @@ sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_
   dplyr::ungroup() 
 
 ```
+
+```{r}
+# Comparing the number of fish in the fish_clean and the fish_lh
+fish_clean_names <- as.data.frame(unique(fish_clean$CompositeCommonName)) 
+
+fish_lh_names <- as.data.frame(unique(fish_lh$species)) 
+
+# what fish are in fish_lh that are not in the fish_clean
+subset(fish_lh_names, 
+       !(fish_lh$species %in% fish_clean$CompositeCommonName))
+
+
+```
+
 
 The life history characteristics of interest are the trophic level, trophic category, and the feeding position.
 
@@ -196,3 +214,32 @@ rmse(y = kfp$y, yrep = kfp$yrep)
 
 1.  We have confirmed the model that predicts the DDT concentration in fish based on life history characteristics
 2.  Create function
+
+```{r}
+sed_2018 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
+plot(sed_2018)
+
+summ <- readRDS(here::here("data", "fish_data", "pelagic_nearshore_fish_zones.rds"))
+plot(summ)
+
+ddt_fish <- read_csv(here::here("data", "data_outputs", "fish_clean.csv")) %>%
+  na.omit(Co) %>% 
+  st_as_sf(coords = c("CompositeTargetLongitude", "CompositeTargetLatitude"), 
+           crs = st_crs(summ))
+
+
+leaflet() %>%  
+  setView(lng = -118.7, lat = 33.5, zoom = 7.5) %>% 
+  addProviderTiles(providers$Esri.WorldImagery) %>% 
+  addGeoJSON(summ$geometry,
+             color = "#CEE0EAFF",
+             weight = 2,
+             fillOpacity = 0.1,
+             layerId = "Hi") %>% 
+  addCircleMarkers(data = ddt_fish,
+                   radius = ~6,
+                   color = "pink",
+                   stroke = FALSE, fillOpacity = 0.5)
+  
+```
+
