@@ -1,12 +1,3 @@
-### Library and function read in
-
-pacman: more convenient performs tasks associated with add on packages, wraps libraries and functions
-
-Descriptive statistics: - specifying associations that can be used to predict outcomes, associations such as interactions between variables (covariates) in order to predict DDT concentrations in fish
-
-### A better understanding of lillians model - bayesian modelling 
-
-```{r}
 ## Regress fish [DDT] against sediment [DDT]
 
 # install and/or load the necessary R packages
@@ -23,13 +14,13 @@ pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster,
 
 # Read in sediment data 
 sediment.summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_zone_summary.rds")) %>%
-  dplyr::select(Name, Est.2003, Est.2008, Est.2013, Est.2018) %>%  # select all years of interest
-  gather(key="Year",value="TotalDDT",Est.2003:Est.2018) %>%  
-  dplyr::mutate(Year = case_when(Year == "Est.2003" ~ "2003", #change est. to simply the year
+  dplyr::select(Name, Est.2003, Est.2008, Est.2013, Est.2018) %>% 
+  gather(key="Year",value="TotalDDT",Est.2003:Est.2018) %>% 
+  dplyr::mutate(Year = case_when(Year == "Est.2003" ~ "2003",
                                  Year == "Est.2008" ~ "2008",
                                  Year == "Est.2013" ~ "2013",
                                  Year == "Est.2018" ~ "2018")) %>% 
-  dplyr::group_by(Name, Year) %>% # group by the name and the year to do. statistics on 
+  dplyr::group_by(Name, Year) %>%
   dplyr::summarize(TotalDDT.sed = (mean((TotalDDT)))) %>%
   dplyr::ungroup() 
 
@@ -43,7 +34,7 @@ fish.reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv"
   dplyr::mutate(NewYear = case_when(Year %in% c(1995:2005) ~ "2003", 
                                     Year %in% c(2006:2010) ~ "2008", 
                                     Year %in% c(2011:2015) ~ "2013", 
-                                    Year %in% c(2016:2022) ~ "2018")) %>%  #join by area name and change newyear variables s
+                                    Year %in% c(2016:2022) ~ "2018")) %>% 
   left_join(., sediment.summary, by=c("CompositeStationArea"="Name", "NewYear"="Year")) %>% 
   dplyr::left_join(., fish.lh, by=c("CompositeCommonName"="species")) %>% 
   dplyr::mutate(feeding_position = case_when(feeding_position == "pelagic" ~ "Pelagic",
@@ -66,32 +57,7 @@ fish.reg = fish.reg %>%
   dplyr::mutate(Censored = ifelse(TotalDDT.trans == 0, "interval","none"), 
                 Detection.Limit = ifelse(is.na(MDL.min), 0.5,log1p(MDL.min/Lipid))) %>% 
   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
-```
 
-#### What did data look like prior to transformations? 
-
-```{r}
-ggplot(data = fish.reg, aes(x = TotalDDT.sed, y = TotalDDT)) +
-  geom_point()
-```
-
-Why log transform data? 
-- chose lipid normalized concentrations due to documented positive relationship between lipid content and organic contaminant  concentrations in fish tissue 
-- fish and sediment values were transormed by log where x is DDT conc. to account for right skewness and zero values
-- zero values!!!
-- log transformations reduce impact of outiers by compressing data range and bringing extreme values closer to the mean, skewness makings it challenging to interpret results and fit models (statistical techniques assume that data follows a normal distribution)
-
-```{r}
-ggplot(data = fish.reg, aes(x = TotalDDT.sed.trans, y = TotalDDT.trans)) +
-  geom_point()
-```
-
-
-# Lipid nomralized: 
-- normalization tries to account for bias or errors to samples more comparable and measure differences 
-- we're dealing with non lipid normalzied data! makes more sense to consuemrs!!
-
-```{r}
 ##################################################################################################################
 ################### Plot fish against sediments   ###################
 ##################################################################################################################
@@ -107,66 +73,34 @@ fish.reg %>%
   theme_bw() +
   theme(legend.position = "none") 
 
-# looking at this graph, benthic and bethopelgaic seems to havea. positive relationship but midwater and pegalic appear to be pretty equally distributed 
-
-```
-- use prior function to sepdiy the distributions 
-
-```{r}
 ##################################################################################################################
 ################### Run BRMS Models   ###################
 ##################################################################################################################
 
-# Look at best structure for model, in the first argument specify distribtion we want to assume four our priors, including the distribution parameters 
-# in second argument, define the class of prior , mean the class in itercept since it is a fixed population level effect 
-# class = b becuase its the default population level effects 
-# brm packages! 
-# model fit can be assued and compared with posterior predictive checks and leavev on out cross validation
-# ~ splits right and lelft side of the equation
-# cens generates a censored or interval version of a distribvution, provides , changes some components of distribution to help fitting process
-
-brm.none = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, data = fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b"))) # set priors to be 0 mean and 0.5 sd
-# TotalDDT.trans is dependant variable which may be right censroed due to detection limit
-#  DDT for fish was treated as a continous, left censored variable where non detected values were constrained to fall between zero and method detection limit
-# mdls were variable across all six DDX analytes was selected for each fish compostie 
-# mdl: minimum measured concentration of a substance that can be reported with 99% confidence that measrued concentration is distinuishable from (MDLS seet so there are non zero values),
-
+# Look at best structure for model 
+brm.none = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, data = fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
 brm.habitat.slope = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, data = fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-# running brm, : is an interaction symbol for sediment DDT and feeding position 
-# setting priors to find ability of this model sediment plus interaction between sediment and feeding position to predict habitat effects on DDT given sediment is censored and has a detection limit 
-
 
 brm.habitat.intercept = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, data =  fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-# running brm for total DDT which is censored and set detection limit and how sediment concentraiton adn feeding popsition without interaction predict intercept 
-
 
 brm.diet.slope = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-#. total DDT censored and set a detection limit to account for zero vallues, sediment plus interzction bettween trophic category adn sediment DD< priors dset
-
 
 brm.diet.intercept = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-# diet effect on Total DDT censored and set detecton ;9,ot, sediment DDT and trophic categori 
 
-brm.trophic = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans *
-                    trophic_category, 
+
+brm.trophic = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category, 
                   data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-# * used to indicate all main effects and interactions among variables that it joins  
-# + only used to indicate two effects 
 
 brm.habitat = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position, 
                   data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
 brm.diet.habitat = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
                          TotalDDT.sed.trans * feeding_position, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-# interaction * term and 
-# assisned species diet and habitat classificaitons according to life hsitory charactersitcsi 
-
 
 brm.diet.habitat.year = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
                               TotalDDT.sed.trans * feeding_position + Year, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
-# two separate priors used 
 brm.diet.habitat.species = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
                                  TotalDDT.sed.trans * feeding_position  +
                                  (1|CompositeCommonName), data =fish.reg, 
@@ -180,24 +114,11 @@ brm.diet.habitat.species.year = brm(TotalDDT.trans|cens(Censored, Detection.Limi
                                     prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b"),   
                                       set_prior("cauchy(0, 2)", class = "sd")))
-```
 
-Cross Validation:  leave on out cross alidation ar methods for estimating point wise out of sample prediction accuracy from a fittd hbayesian model using log- likelidd evaludated at posterior simulations of parameter vlaues 
-- loo package: 
-- we obtain approx standard errorsfor estimated predictive errors and for comparing of predictive errordd between. 2 models 
-- is K fold cross val, with k =n, the number of datapoints in set 
-- N sdparate times function approximator is trained on all data except for point and a predicton is mde for thst point 
+##################################################################################################################
+################### Run BRMS Models   ###################
+##################################################################################################################
 
-holdout : simplest kind of ceoss val, datet os s[;it into two cxalled testing qand training, funciton approxiamtor fits a function using training set only, then asked to predict output values for data in testing sret 
-k - fold cross val: 
-- data set divided into k subsets and hldout is repeated k times, each time one of k subsets is for testing and other k-1 subsets are used for training an
-- average across all k trials is computed 
-- every data point is in test set exaclty one and is in training set k -1 times 
-- takes k times as muchc omputation tie 
-
-
-
-```{r}
 # Compare LOOIC
 LOO.results = LOO(brm.none, 
                   brm.habitat.slope,brm.habitat, brm.habitat.intercept,
@@ -206,9 +127,6 @@ LOO.results = LOO(brm.none,
                   brm.diet.habitat.species, brm.diet.habitat.species.year)
 
 # Compare bayesian R2 - NOTE CENSORED MODELS HAVE ISSUES WITH INTERPRETATION OF THIS 
-# lapp() applies bayesian R2 to all 
-
-
 R2.results = lapply(X=list(brm.none, 
                            brm.habitat.slope,brm.habitat, brm.habitat.intercept,
                            brm.diet.slope,brm.diet.intercept,brm.trophic,
@@ -216,17 +134,11 @@ R2.results = lapply(X=list(brm.none,
                            brm.diet.habitat.species, brm.diet.habitat.species.year), FUN=bayes_R2)
 
 ## Look at paramter estimates for best-fit model (80% highest density credible intervals)
-# parameter estimates lwoest value is best value 
-
 mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
-```
 
-```{r}
 ##################################################################################################################
 ################### Plot posterior predictions for habitat/ diet models ###################
 ##################################################################################################################
-
-# function (posterior) uses model.type 
 
 get_dataframe_intervals <- function(model, model.type=c("trophic","habitat","all.fe")) {
   
@@ -291,10 +203,6 @@ get_dataframe_intervals <- function(model, model.type=c("trophic","habitat","all
   return(data)
 }
 
-# mmc_intervals_data plot central posterior interval estiamtes from MCMC drawss 
-```
-
-```{r}
 dummy <- data.frame(term = rep("dummy",6), 
                     type = c("Intercept","Intercept","Sediment[DDT]","Sediment[DDT]","Year","Year"), 
                     m = c(-1.25, 3.1, -0.56, 0.85, -0.15, 0.15))
@@ -315,9 +223,6 @@ null.effects = ggplot(get_dataframe_intervals(brm.none, model.type="trophic"),
   geom_blank(data=dummy[dummy$type != "Year",]) 
 
 
-```
-
-```{r}
 diet.effects = ggplot(get_dataframe_intervals(brm.trophic, model.type="trophic"), 
                       aes(x = m)) + 
   geom_linerange(aes(y = parameter_new, color=parameter_new,xmin = ll, xmax = hh), size=1.1, color="black")+
@@ -332,9 +237,8 @@ diet.effects = ggplot(get_dataframe_intervals(brm.trophic, model.type="trophic")
   theme(legend.position = "none") + 
   ggtitle("Diet Model") + 
   geom_blank(data=dummy[dummy$type != "Year",]) 
-```
 
-```{r}
+
 habitat.effects = ggplot(get_dataframe_intervals(brm.habitat, model.type="habitat"), 
                          aes(x = m)) + 
   geom_linerange(aes(y = parameter_new, color=parameter_new,xmin = ll, xmax = hh), size=1.1, color="black")+
@@ -353,9 +257,7 @@ habitat.effects = ggplot(get_dataframe_intervals(brm.habitat, model.type="habita
 cowplot::plot_grid(null.effects, diet.effects,habitat.effects, 
                    align = "hv",ncol = 1,  rel_heights = c(0.5, 1,1), 
                    labels=c("A","B", "C"))
-```
 
-```{r}
 ##################################################################################################################
 ################### Plot posterior predictions for best fit model ###################
 ##################################################################################################################
@@ -377,9 +279,6 @@ fixed.effects.plot = ggplot(get_dataframe_intervals(brm.diet.habitat.species.yea
   theme(legend.position = "none")+
   geom_blank(data=dummy) 
 
-```
-
-```{r}
 random.effects.plot = ggplot(get_dataframe_intervals(brm.diet.habitat.species.year, model.type="all.re") %>% 
                                dplyr::mutate(trophic_category = as.factor(trophic_category)) %>% 
                                unique(), 
@@ -398,14 +297,3 @@ random.effects.plot = ggplot(get_dataframe_intervals(brm.diet.habitat.species.ye
 
 cowplot::plot_grid(fixed.effects.plot,random.effects.plot, ncol = 2,  rel_heights = c(1,1), 
                    labels=c("A","B"))
-
-```
-
-
-
-# More notes: 
-- predict() funciton: used to predict values based on the input data
-- predict() predicts new values based on input data, such as the object(cass inheriting from linear odel) new data (nput data ot predict values)
-- intervals type of interval calculation?
-- create a mdoel, use predict to test linear_mdoel on the new data 
-- fiexed effect model: special case assuming =0 meaning no between study heterogeneity all that all studies share a single true effect size 
