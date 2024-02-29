@@ -15,10 +15,10 @@ library(sf)
 library(terra)
 library(leaflet)
 
-if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
-pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
-               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
-               DHARMa)
+# if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
+# pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
+#                MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+#                DHARMa)
 ```
 
 # Set up with clean data
@@ -55,6 +55,28 @@ subset(fish_lh_names,
        !(fish_lh$species %in% fish_clean$CompositeCommonName))
 
 
+```
+
+## Exploring length and weight variables
+```{r}
+# eploring the missing weight and length data 
+null_weight_fish <- fish_clean %>% 
+  filter(is.na(WeightAvg.g))
+
+null_length_fish <- fish_clean %>% 
+  filter(is.na(TLAvgLength.mm))
+
+# names of unique ID's
+fish_clean_names <- as.data.frame(unique(fish_clean$CompositeCompositeID)) 
+
+# what fish are in null_weight_fish that are not in the null_length_fish
+null_length <- subset(fish_clean_names, 
+       !(null_weight_fish$CompositeCompositeID %in% null_length_fish$CompositeCompositeID))
+
+null_length_df <- fish_clean %>% 
+  filter(CompositeCompositeID %in% null_length$`unique(fish_clean$CompositeCompositeID)`)
+
+null_w_l <- rbind(null_weight_fish, null_length_df)
 ```
 
 
