@@ -253,5 +253,41 @@ LOO.results = LOO(brm.none, brm.habitat.slope,brm.habitat,
 
 mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
 ```
+
+
+
+### Further Exploraton 
+- 
+```{r}
+fish_dat <- read_csv("/Users/katebecker/Documents/Bren/Capstone/SaferSeafood/data/fish_data/totalDDX_fish_southernCA.csv")
+
+```
+
+```{r}
+unique(fish_dat)
+```
+
+Weight Observations 
+```{r}
+# only 439 observations
+# 658 NA's 
+summary(fish_dat$WeightAvg.g)
+unique(fish_dat$TLAvgLength.mm)
+```
+
+Length Observations 
+```{r}
+# 482 NA observations 
+# 539 observations 
+
+unique(fish_dat$TLAvgLength.mm)
+summary(fish_dat$TLAvgLength.mm)
+```
+- alot of NAs here can we even find a relationship here? 
+
+
+
+```{r}
+
 ```
 
