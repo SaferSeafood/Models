@@ -42,6 +42,7 @@ sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_
   dplyr::summarize(TotalDDT.sed = (mean((TotalDDT)))) %>%
   dplyr::ungroup() 
 
+
 ```
 
 ```{r}
@@ -108,11 +109,39 @@ brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detec
                                       set_prior("cauchy(0, 0.5)", class = "b"),
                                       set_prior("cauchy(0, 2)", class = "sd")))
 
-loo(brm.diet.habitat.species.year.original)
-bayes_R2(brm.diet.habitat.species.year.original)
+# using species 
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
+                                    data = fish_clean, 
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),   
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+
+# removing species from the model 
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
+                            data = fish_clean, 
+                            prior = c(
+                              set_prior("cauchy(0, 0.5)", class = "b")#,   
+                              #set_prior("cauchy(0, 2)", class = "sd"))
+                            ))
+
+loo_results <- LOO(brm.diet.habitat.species.year.original,
+                   brm.diet.habitat.species.year,
+                   brm.diet.habitat.year)
+
+R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
+                   brm.diet.habitat.species.year,
+                   brm.diet.habitat.year), 
+                   FUN=bayes_R2)
+R2.results
+
+fish_predict <- predict(brm.diet.habitat.species.year.original,
+                        fish_clean_original) %>% 
+  bind_cols(fish_clean_original)
+
+accuracy_vec(fish_predict, truth = TotalDDT.trans, estimate = Estimate)
 
 # make predictions
-cvvs <- loo_predict(brm.diet.habitat.species.year.original)
+#cvvs <- loo_predict(brm.diet.habitat.species.year.original)
 
 fish_clean_original %>% 
   mutate(prediction = cvvs) %>% 
