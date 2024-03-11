@@ -15,10 +15,10 @@ library(sf)
 library(terra)
 library(leaflet)
 
-# if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
-# pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
-#                MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
-#                DHARMa)
+if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
+pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster,
+               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+               DHARMa)
 ```
 
 # Set up with clean data
@@ -346,5 +346,61 @@ taxa_filter <- taxa %>%
 
 fish_clean_test <- fish_clean %>% 
   left_join(taxa_filter, by = "scientific_name")
+```
+
+Run the same tests onthem but have family as a random effect
+```{r}
+# add the family and genus to the dataframe
+fish.reg.fam <- fish_clean_original %>% 
+  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                                            TRUE ~ scientific_name)) %>%
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
+                                "Loliginidae",
+                                Family))
+```
+
+
+```{r}
+# Look at best structure for model
+brm.none.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, data = fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat.slope.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, data = fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat.intercept.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, data =  fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.slope.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.intercept.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+
+brm.trophic.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category,
+                  data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position,
+                  data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                         TotalDDT.sed.trans * feeding_position, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                              TotalDDT.sed.trans * feeding_position + Year, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.species.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                 TotalDDT.sed.trans * feeding_position + Family, data =fish.reg.fam,
+                               prior = c(
+                                 set_prior("cauchy(0, 0.5)", class = "b")
+                                 #set_prior("cauchy(0, 2)", class = "sd")) remove this
+                               ))
+
+brm.diet.habitat.species.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                      TotalDDT.sed.trans * feeding_position + Year + Family, data =fish.reg.fam,
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b")
+                                      #set_prior("cauchy(0, 2)", class = "sd")) remove this
+                                    ))
+
+
 ```
 
