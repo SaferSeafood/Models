@@ -359,8 +359,19 @@ fish.reg.fam <- fish_clean_original %>%
   dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
                                 "Loliginidae",
                                 Family))
+
+# add the family and genus to the dataframe
+fish.clean.fam <- fish_clean %>% 
+  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                                            TRUE ~ scientific_name)) %>%
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
+                                "Loliginidae",
+                                Family))
 ```
 
+# Run with the Original data that is in `fish.reg.fam`
 
 ```{r}
 # Look at best structure for model
@@ -387,14 +398,14 @@ brm.diet.habitat.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ Tota
 brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
                               TotalDDT.sed.trans * feeding_position + Year, data =fish.reg, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
-brm.diet.habitat.species.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+brm.diet.habitat.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
                                  TotalDDT.sed.trans * feeding_position + Family, data =fish.reg.fam,
                                prior = c(
                                  set_prior("cauchy(0, 0.5)", class = "b")
                                  #set_prior("cauchy(0, 2)", class = "sd")) remove this
                                ))
 
-brm.diet.habitat.species.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
                                       TotalDDT.sed.trans * feeding_position + Year + Family, data =fish.reg.fam,
                                     prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b")
@@ -402,5 +413,78 @@ brm.diet.habitat.species.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.
                                     ))
 
 
+```
+
+# Run with the non lipid normalized data that is in `fish.clean.fam`
+- updated the variable to TotalDDT.trans.non (for the logged ddt data)
+- updated the data to `fish_clean ` and `fish.clean.fam`
+
+```{r}
+# Look at best structure for model
+brm.none = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, 
+                   data = fish_clean, # changed data
+                   prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, 
+                            data = fish_clean, # changed data
+                            prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
+                                data = fish_clean, # changd data
+                                prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
+                         data = fish_clean, # changed data
+                         prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
+                             data = fish_clean, # changed data 
+                             prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+
+brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category,
+                  data = fish_clean, # changed data
+                  prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position,
+                  data = fish_clean, # changed data 
+                  prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.fam = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                         TotalDDT.sed.trans * feeding_position, 
+                         data = fish_clean, # changed data
+                         prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                              TotalDDT.sed.trans * feeding_position + Year, 
+                            data = fish_clean, # changed data
+                            prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
+
+brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                 TotalDDT.sed.trans * feeding_position + Family, 
+                       data =fish.clean.fam, # changed data
+                       prior = c(
+                                 set_prior("cauchy(0, 0.5)", class = "b")
+                                 #set_prior("cauchy(0, 2)", class = "sd")) remove this
+                               ))
+
+brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                      TotalDDT.sed.trans * feeding_position + Year + Family, 
+                                data =fish.clean.fam, # changed data
+                                prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b")
+                                      #set_prior("cauchy(0, 2)", class = "sd")) remove this
+                                    ))
+
+
+```
+
+
+Then get the R2 values for each of these with this chunk:
+```{r}
+R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
+                   brm.diet.habitat.species.year,
+                   brm.diet.habitat.year), 
+                   FUN=bayes_R2)
 ```
 

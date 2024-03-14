@@ -1,5 +1,8 @@
 library(tidymodels)
 library(tidyposterior)
+library(tidyverse)
+
+#dt <- read_csv(here::here('data', "data_outputs", "loo_compare.csv"))
 
 # run loo using the original models
 compare_original_mods <- brms::loo(brm.none,
