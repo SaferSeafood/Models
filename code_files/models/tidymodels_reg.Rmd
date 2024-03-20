@@ -1,0 +1,389 @@
+---
+title: "Hope Model Stuff"
+author: "Hope Hahn"
+date: "2024-02-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## <span style="color: grey;">Overview</span>
+
+---
+
+### The Data
+
+The data used in this project will be:
+
+***Sediment Data***
+
+The sediment .rds file contains the total DDT sediment concentration and year. 
+
+***Fish Data***
+
+Fish life history:
+Fish life history data contains trophic and feeding position data for species that were sampled. 
+
+Fish DDT data:
+Fish DDT data contains total DDT concentration, lipid normalized DDT data, and other fish DDT information.
+
+### Main Steps
+***Client Code***
+
+* Read in and tidy sediment and fish data
+* Bayesian modeling
+
+***My Code***
+
+* testing regression with ML
+* try LOO with tidymodels (will do this)
+
+*Note*: At the bottom of the page, there is a summary of what problems I encountered, and what needs to be fixed/looked into moving forward. After looking through the code, read through this section before proceeding with updates.
+
+## <span style="color: grey;">Code</span>
+
+---
+
+### Client Code
+
+In this section, the necessary code from the client script is copied and pasted. Their modeling code is not pasted into a chunk to avoid running it accidentally since we will not need to run it here. It is just acting as a reference for my own code.
+
+**Regress fish [DDT] against sediment [DDT]**
+
+```{r}
+# install and/or load the necessary R packages
+if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
+pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
+               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+               DHARMa)
+#rgeos, INLAutils, DHARMa.helpers)
+```
+
+**Load in data and add censoring column**
+
+In these steps, we will read in the data, and combine relevent data. We will add columns of transformed data and add censoring column.
+
+*What is censoring column?*
+
+```{r}
+fish_reg <- read.csv(here::here("data", "data_outputs", "fish_clean.csv"))
+```
+
+**Client BRMS models**
+
+These are the client models. I will not put them into a code chunk.
+
+*What is the difference between the interactions (colon vs asterik)?*
+
+# -------------------------------
+brm.habitat.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, 
+data = fish_reg, 
+prior = c(set_prior("cauchy(0, 0.5)", 
+class = "b")))
+
+brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
+  data =  fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
+  data =fish_reg, 
+  prior = c(set_prior("cauchy(0, 0.5)", 
+  class = "b")))
+
+brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position  + (1|CompositeCommonName), 
+  data =fish_reg, 
+  prior = c(
+  set_prior("cauchy(0, 0.5)", class = "b"),   
+  set_prior("cauchy(0, 2)", class = "sd")))
+
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
+  data =fish_reg, 
+  prior = c(
+  set_prior("cauchy(0, 0.5)", class = "b"),   
+  set_prior("cauchy(0, 2)", class = "sd")))
+  
+# -------------------------------
+
+### My Code:
+
+This is a series of my code. I will be keeping code that has failed as well, but commenting out which lines do not run. Under this section, there will be a log of what went wrong, and what we need to fix moving forward.
+
+#### ML attempt 1:
+
+I will try to apply what we learned in ML labs 1 and 2 to see if we can use this for Bayesian regression.
+
+**Prep:**
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+# select only relevant columns
+fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+
+# ------------------------------------- this didnt work ------------------------------
+# set formula
+## dont know how this would work with bayesian modeling
+#fish_formula <- brmsformula(total_ddt_trans_non|cens(censored, detection_limit) ~ #total_ddt_sed_trans * trophic_category + total_ddt_sed_trans * feeding_position  + #(1|composite_common_name)) 
+# ------------------------------------------------------------------------------------
+
+# split training and testing data
+fish_split <- fish_cleaned %>% 
+  initial_split(prop = 0.7)
+
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
+
+# are we supposed to put the correct formula in here?? bc it does not work when copy and pasting above thing
+# try out recipe: 
+fish_recipe <- recipe(TotalDDT.trans.non ~ ., data = fish_train) %>% 
+  step_integer(all_predictors(), zero_based = TRUE)
+
+fish_prep <- prep(fish_recipe)
+
+fish_baked <- bake(fish_prep, new_data = NULL)
+```
+
+**Setting and training the model**
+
+```{r}
+# set model specification
+brm_fish_spec <- linear_reg() %>% 
+  set_engine("stan", prior = c(
+    set_prior("cauchy(0, 0.5)", class = "b"),   
+    set_prior("cauchy(0, 2)", class = "sd"))) %>% 
+  set_mode("regression")
+
+# create workflow
+brm_wf <- workflow() %>% 
+  add_recipe(fish_recipe) %>% 
+  add_model(brm_fish_spec) 
+
+library('rstanarm')
+
+# Train the model
+## Commented this out for knitting ----
+#brm_wf_fit <- brm_wf %>% 
+  #fit(data = fish_train) 
+
+# make predictions
+#predictions <- brm_wf_fit %>% 
+ # predict(new_data = fish_test)
+```
+
+#### ML attempt 2:
+
+The previous attempt did not work because of problems with setting the priors I believe. Trying it out again without adding priors.
+
+```{r}
+fish_recipe <- recipe(TotalDDT.trans.non ~ ., data = fish_train) %>% 
+  step_integer(all_predictors(), zero_based = TRUE)
+
+# set model specification
+brm_fish_spec <- linear_reg() %>% 
+  set_engine("stan") %>% # taking out priors for now
+  set_mode("regression")
+
+# create workflow
+brm_wf <- workflow() %>% 
+  add_recipe(fish_recipe) %>% 
+  add_model(brm_fish_spec) 
+
+# Train the model
+brm_wf_fit <- brm_wf %>% 
+  fit(data = fish_train) 
+
+# make predictions
+predictions <- brm_wf_fit %>% 
+  predict(new_data = fish_test)
+```
+
+
+It worked, so the priors did appear to be the problem, need to figure out how to add priors to set_engine().
+
+---
+
+## Log/Summary:
+
+* I first tried to apply their exact formula into the recipe, it didn't work so I just used "~." for the recipe.
+
+* There are issues with the priors in the set_engine() function. We need to figure out how to input priors here. "priors =" is meant to be put in the set_engine, but they way they put it is with set_priors() which is brms package. With the priors, everything runs, up to fitting the model to the training data. 
+
+* When we take priors out of set_engine(), we can fit the model to the training data and get predictions.
+
+## Moving Forward Checklist
+
+* How do we specify their exact formula in the recipe?
+
+* What is the proper way to add priors into the set_engine() function?
+
+* After we figure those out, we will need to cross-validate: Bruce mentioned trying LOO using tidymodels (there is a function) to see if we get the same accuracy as them, and we also wanted to try other methods I believe (k-fold CV?).
+
+--- 
+
+### ML attempt 3:
+
+After the client meeting on 2/29, the clients said that it would be okay to remove the censored column. The | function is proper format for the BRMS package. I will remove that part and try again to see if it works.
+
+Breaking up the steps:
+
+**Setting a recipe**
+
+Setting a recipe is setting instructions for pre-processing the data. The necessary preprosessing is converting all predictors to numeric.
+"When using the formula method via fit(), parsnip will convert factor columns to indicators."
+
+https://workflows.tidymodels.org/reference/add_formula.html
+
+```{r}
+#fish_recipe <- recipe(TotalDDT.trans.non ~ ., data = fish_train) %>% 
+  #step_integer(all_predictors(), zero_based = TRUE) %>% 
+```
+
+**Setting model spec**
+
+Added priors to this one. I added the class "b" prior from the client's model; I think the "sd" class was for the random group effects, and I took those out anyways.
+
+```{r}
+# set model specification
+brm_fish_spec <- linear_reg() %>% 
+  set_engine("stan", 
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+```
+
+**Create a workflow**
+
+The new workflow will include the model spec as well as the formula.
+
+I had to take out the censored thing and the species as a random effect.
+
+```{r}
+# create workflow 
+brm_wf <- workflow() %>% 
+  add_model(brm_fish_spec) %>% 
+  add_formula(TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year)
+```
+
+**Resample and finalize wf**
+
+Resampling with 10-fold CV, but I am not sure how to finalize workflow. Not sure what metric would be appropriate to use here.
+
+```{r}
+# create folds
+folds <- vfold_cv(fish_train, v = 10)
+
+# resample
+fit_rs <- brm_wf %>% 
+  fit_resamples(folds)
+
+fit_rs$.metrics
+
+# collect metrics
+collect_metrics(fit_rs)
+```
+
+**Train model**
+
+Fit the model to the train data and make predictions with the training data.
+
+```{r}
+# Train the model
+brm_wf_fit <- brm_wf %>% 
+  fit(data = fish_train) 
+
+# make predictions
+train_predict_brm <- predict(object = brm_wf_fit, new_data = fish_train) %>% #predict the training set
+  bind_cols(fish_train)
+```
+
+**Fit to test data**
+
+```{r}
+test_predict_brm <- predict(brm_wf_fit, fish_test) %>% #get prediction probabilities for test data
+  bind_cols(fish_test) #bind to testing column
+```
+
+**Accuracy and metrics**
+
+
+```{r}
+metrics(test_predict_brm, truth = TotalDDT.trans.non, estimate = .pred)
+
+#accuracy(test_predict_brm, truth = TotalDDT.trans.non, estimate = predicted)
+```
+
+---
+
+## Log/Summary:
+
+* After some research, it appears that perhaps a recipe was not required, and when fitting the data, it automatically converts to integers with "stan". 
+
+* Instead of setting a recipe, I set a formula. To get the model to fit to the data, I had to remove the censor column and species as a random effect.
+
+## Moving Forward Checklist
+
+* We need to figure out how to properly resample this data, and look into how to evaluate model accuracy.
+
+* It would be cool to figure out a way to keep the censored data and species in the formula to test the tidymodels accuracy against the brms package.
+
+* If we figure out how to keep the original formula, then we can use tidymodels LOO compared to the LOO they used. 
+
+--- 
+
+### Splitting the Data
+
+```{r}
+# Split the data into groups based on species
+grouped_data <- fish_cleaned %>%
+                group_split(CompositeCommonName)
+# Create an empty list to store sampled dataframes
+sampled_dataframes <- list()
+# Loop through each group, sample 70% of data and store it in the list
+for (group in grouped_data) {
+  sampled_data <- group %>%
+                  sample_frac(0.7, replace = FALSE)
+  sampled_dataframes[[length(sampled_dataframes) + 1]] <- sampled_data
+
+}
+```
+
+```{r}
+distinct_species <- unique(fish_cleaned$CompositeCommonName)
+
+# Sample 70% of distinct species
+sampled_species <- sample(distinct_species, size = 0.7 * length(distinct_species))
+# Filter the original dataframe to retain only the rows corresponding to sampled species
+train_data_unique <- fish_cleaned %>%
+               filter(CompositeCommonName %in% sampled_species)
+
+test_data_unique <- fish_cleaned %>% 
+  anti_join(sampled_data, by = "CompositeCommonName")
+```
+
