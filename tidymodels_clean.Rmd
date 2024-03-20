@@ -1,0 +1,127 @@
+---
+title: "Cleaned tidymodels"
+author: "Hope Hahn"
+date: "2024-03-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# ALL METRICS CODE AT BOTTOM
+
+# READ IN DATA
+```{r}
+fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+
+fish_split <- fish_cleaned %>% 
+  initial_split(prop = 0.7)
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
+```
+
+# MODEL WITHOUT RANDOM EFFECTS OR CENSORING
+also no species at all
+
+```{r}
+# set model specification
+brm_fish_spec <- linear_reg() %>% 
+  set_engine("stan", 
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+
+# create workflow 
+brm_wf <- workflow() %>% 
+  add_model(brm_fish_spec) %>% 
+  add_formula(TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year)
+
+# Train the model
+brm_wf_fit <- brm_wf %>% 
+  fit(data = fish_train) 
+
+# predictions on testing
+test_predict_brm <- predict(brm_wf_fit, fish_test) %>% #get prediction probabilities for test data
+  bind_cols(fish_test) #bind to testing column
+```
+
+# FAMILY and SPECIES RANDOM EFFECT
+```{r}
+library(rfishbase)
+
+# get the unique species names - should be 61
+species_name <- unique(fish_cleaned$scientific_name)
+
+# look at the list of species using the names - these are different sizes
+species_info <- species(species_list = species_name)
+
+# update the names of the fish to match fishbase
+species_name_clean <- as.data.frame(species_name) %>% 
+  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                          TRUE ~ species_name))
+
+# look at the taxa of the fish 
+taxa <- rfishbase::load_taxa()
+
+# filter the taxa based on name 
+taxa_filter <- taxa %>% 
+  filter(Species %in% species_name_clean$species_name) %>% 
+  select(scientific_name = Species, Family, Genus)
+
+fish_clean_fam <- fish_cleaned %>% 
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  na.omit() # added this because it wont predict data with NA
+
+# split new data
+fam_split <- initial_split(fish_clean_fam, prop = 0.7)
+fam_train <- training(fam_split)
+fam_test <- testing(fam_split)
+
+species_split <- initial_split(fish_cleaned, prop = 0.7)
+species_train <- training(species_split)
+species_test <- testing(species_split)
+
+library(multilevelmod)
+# create spec
+brm_fish_spec_fam <- linear_reg() %>% 
+  set_engine("stan_glmer", 
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+
+# this is the workflow suggested by multilevelmod 
+# I will try it to see if i get same results
+lmer_wflow <- 
+  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+
+# species workflow
+species_wf <-  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, CompositeCommonName)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
+
+# train using the other workflow
+brm_fam_fit2 <- lmer_wflow %>% 
+  fit(data = fam_train) 
+
+brm_species_fit <- species_wf %>% 
+  fit(data = species_train)
+
+# predict using other workflow
+test_predict_fam2 <- predict(brm_fam_fit2, fam_test) %>% #get prediction probabilities for test data
+  bind_cols(fam_test)
+
+test_predict_species <- predict(brm_species_fit, species_test) %>% 
+  bind_cols(species_test)
+```
+
+# METRICS
+```{r}
+norandom <- metrics(test_predict_brm, truth = TotalDDT.trans.non, estimate = .pred)
+
+# test accuracy
+randomfam <- metrics(test_predict_fam2, truth = TotalDDT.trans.non, estimate = .pred)
+
+randomspecies <- metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
+```
+

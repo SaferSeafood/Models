@@ -37,6 +37,7 @@ Fish DDT data contains total DDT concentration, lipid normalized DDT data, and o
 
 ***My Code***
 
+<<<<<<< HEAD
 * testing regression with ML
 * try LOO with tidymodels (will do this)
 
@@ -134,6 +135,15 @@ brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.
 
 ### My Code:
 
+=======
+* ML Attempt #1 - FAILED
+* ML Attempt #2 - FAILED
+* ML Attempt #3 - SUCCESS
+* Adding random effects
+
+*Note*: At the bottom of the page, there is a summary of what problems I encountered, and what needs to be fixed/looked into moving forward. After looking through the code, read through this section before proceeding with updates.
+
+>>>>>>> e4baa05f8352564c634f50a3aa8735fd8c0ec066
 This is a series of my code. I will be keeping code that has failed as well, but commenting out which lines do not run. Under this section, there will be a log of what went wrong, and what we need to fix moving forward.
 
 #### ML attempt 1:
@@ -387,3 +397,119 @@ test_data_unique <- fish_cleaned %>%
   anti_join(sampled_data, by = "CompositeCommonName")
 ```
 
+=======
+### Running models again using family instead of species
+
+*This chunk is Luna's code*
+
+```{r}
+library(rfishbase)
+
+# get the unique species names - should be 61
+species_name <- unique(fish_cleaned$scientific_name)
+
+# look at the list of species using the names - these are different sizes
+species_info <- species(species_list = species_name)
+
+# update the names of the fish to match fishbase
+species_name_clean <- as.data.frame(species_name) %>% 
+  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                          TRUE ~ species_name))
+
+# look at the taxa of the fish 
+taxa <- rfishbase::load_taxa()
+
+# filter the taxa based on name 
+taxa_filter <- taxa %>% 
+  filter(Species %in% species_name_clean$species_name) %>% 
+  select(scientific_name = Species, Family, Genus)
+
+fish_clean_fam <- fish_cleaned %>% 
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  na.omit() # added this because it wont predict data with NA
+```
+* Now this is my code again*
+
+```{r}
+# split new data
+fam_split <- initial_split(fish_clean_fam, prop = 0.7)
+fam_train <- training(fam_split)
+fam_test <- testing(fam_split)
+
+species_split <- initial_split(fish_cleaned, prop = 0.7)
+species_train <- training(species_split)
+species_test <- testing(species_split)
+```
+
+
+I am trying a new way based on multilevelmod documentation
+
+```{r}
+library(multilevelmod)
+# create spec
+brm_fish_spec_fam <- linear_reg() %>% 
+  set_engine("stan_glmer", 
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+
+# create workflow
+fam_wflow <- 
+  workflow() %>% 
+  add_model(brm_fish_spec_fam) %>% 
+  add_formula(TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+
+# this is the workflow suggested by multilevelmod 
+# I will try it to see if i get same results
+lmer_wflow <- 
+  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+
+# species workflow
+species_wf <-  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, CompositeCommonName)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
+```
+
+
+```{r}
+# Train the model
+#brm_fam_fit <- fam_wflow %>% 
+  #fit(data = fam_train) 
+
+# This first workflow did not work
+
+# train using the other workflow
+brm_fam_fit2 <- lmer_wflow %>% 
+  fit(data = fam_train) 
+
+brm_species_fit <- species_wf %>% 
+  fit(data = species_train)
+
+# predict using other workflow
+test_predict_fam2 <- predict(brm_fam_fit2, fam_test) %>% #get prediction probabilities for test data
+  bind_cols(fam_test)
+
+test_predict_species <- predict(brm_species_fit, species_test) %>% 
+  bind_cols(species_test)
+```
+
+```{r}
+# test accuracy
+metrics(test_predict_fam2, truth = TotalDDT.trans.non, estimate = .pred)
+
+metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
+```
+
+---
+
+## Log/Summary
+
+* I used the parsnip extension package called multilevelmod to add family and species as a random effect. 
+
+* Model performed better with species as a random effect vs family as a random effect.
+
+* Now that we've figured out random effects in tidymodels, what about adding censoring??
+
+---
