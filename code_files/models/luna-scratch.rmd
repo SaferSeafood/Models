@@ -380,7 +380,7 @@ fish.clean.fam <- fish_clean %>%
 
 # Run with the Original data that is in `fish.reg.fam`
 
-```{r}
+```{r message = FALSE}
 # Look at best structure for model
 brm.none.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, data = fish.reg.fam, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
@@ -426,7 +426,7 @@ brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~
 - updated the variable to TotalDDT.trans.non (for the logged ddt data)
 - updated the data to `fish_clean ` and `fish.clean.fam`
 
-```{r}
+```{r message = FALSE}
 # Look at best structure for model
 brm.none = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, 
                    data = fish_clean, # changed data
