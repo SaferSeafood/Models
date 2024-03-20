@@ -406,18 +406,18 @@ brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~
                               TotalDDT.sed.trans * feeding_position + Year, data =fish.reg.fam, prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
 brm.diet.habitat.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                 TotalDDT.sed.trans * feeding_position + Family, data =fish.reg.fam,
+                                 TotalDDT.sed.trans * feeding_position + (1|Family), data =fish.reg.fam,
                                prior = c(
-                                 set_prior("cauchy(0, 0.5)", class = "b")
-                                 #set_prior("cauchy(0, 2)", class = "sd")) remove this
-                               ))
+                                 set_prior("cauchy(0, 0.5)", class = "b"),
+                                 set_prior("cauchy(0, 2)", class = "sd"))
+                               )
 
 brm.diet.habitat.year.fam = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                      TotalDDT.sed.trans * feeding_position + Year + Family, data =fish.reg.fam,
+                                      TotalDDT.sed.trans * feeding_position + Year + (1|Family), data =fish.reg.fam,
                                     prior = c(
-                                      set_prior("cauchy(0, 0.5)", class = "b")
-                                      #set_prior("cauchy(0, 2)", class = "sd")) remove this
-                                    ))
+                                      set_prior("cauchy(0, 0.5)", class = "b"),
+                                      set_prior("cauchy(0, 2)", class = "sd"))
+                                    )
 
 
 ```
@@ -468,20 +468,20 @@ brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~
                             prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
 brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                 TotalDDT.sed.trans * feeding_position + Family, 
+                                 TotalDDT.sed.trans * feeding_position + (1|Family), 
                        data =fish.clean.fam, # changed data
                        prior = c(
-                                 set_prior("cauchy(0, 0.5)", class = "b")
-                                 #set_prior("cauchy(0, 2)", class = "sd")) remove this
-                               ))
+                                 set_prior("cauchy(0, 0.5)", class = "b"),
+                                 set_prior("cauchy(0, 2)", class = "sd"))
+                               )
 
 brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                      TotalDDT.sed.trans * feeding_position + Year + Family, 
+                                      TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
                                 data =fish.clean.fam, # changed data
                                 prior = c(
-                                      set_prior("cauchy(0, 0.5)", class = "b")
-                                      #set_prior("cauchy(0, 2)", class = "sd")) remove this
-                                    ))
+                                      set_prior("cauchy(0, 0.5)", class = "b"),
+                                      set_prior("cauchy(0, 2)", class = "sd")) 
+                                    )
 
 
 ```

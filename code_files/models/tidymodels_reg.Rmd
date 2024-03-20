@@ -7,6 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(23)
 ```
 
 ## <span style="color: grey;">Overview</span>
@@ -306,6 +308,8 @@ brm_wf <- workflow() %>%
 Resampling with 10-fold CV, but I am not sure how to finalize workflow. Not sure what metric would be appropriate to use here.
 
 ```{r}
+set.seed(23)
+
 # create folds
 folds <- vfold_cv(fish_train, v = 10)
 
@@ -370,6 +374,8 @@ metrics(test_predict_brm, truth = TotalDDT.trans.non, estimate = .pred)
 ### Splitting the Data
 
 ```{r}
+set.seed(23)
+
 # Split the data into groups based on species
 grouped_data <- fish_cleaned %>%
                 group_split(CompositeCommonName)
@@ -385,16 +391,17 @@ for (group in grouped_data) {
 ```
 
 ```{r}
-distinct_species <- unique(fish_cleaned$CompositeCommonName)
+set.seed(23)
+distinct_species <- unique(fish_cleaned$scientific_name)
 
 # Sample 70% of distinct species
 sampled_species <- sample(distinct_species, size = 0.7 * length(distinct_species))
 # Filter the original dataframe to retain only the rows corresponding to sampled species
 train_data_unique <- fish_cleaned %>%
-               filter(CompositeCommonName %in% sampled_species)
+               filter(scientific_name %in% sampled_species)
 
 test_data_unique <- fish_cleaned %>% 
-  anti_join(sampled_data, by = "CompositeCommonName")
+  filter(!(scientific_name %in% sampled_species))
 ```
 
 =======
@@ -423,13 +430,35 @@ taxa <- rfishbase::load_taxa()
 # filter the taxa based on name 
 taxa_filter <- taxa %>% 
   filter(Species %in% species_name_clean$species_name) %>% 
-  select(scientific_name = Species, Family, Genus)
+  dplyr::select(scientific_name = Species, Family, Genus)
 
 fish_clean_fam <- fish_cleaned %>% 
+  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                                            TRUE ~ scientific_name)) %>%
   left_join(taxa_filter, by = "scientific_name") %>% 
-  na.omit() # added this because it wont predict data with NA
+  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
+                                "Loliginidae",
+                                Family))
 ```
 * Now this is my code again*
+
+**Splitting the data by unique species**
+- Adding this code chunk here with the updated species names
+```{r}
+set.seed(23)
+distinct_species <- unique(fish_clean_fam$scientific_name)
+
+# Sample 70% of distinct species
+sampled_species <- sample(distinct_species, size = 0.7 * length(distinct_species))
+# Filter the original dataframe to retain only the rows corresponding to sampled species
+train_unique <- fish_clean_fam %>%
+               filter(scientific_name %in% sampled_species)
+
+test_unique <- fish_clean_fam %>% 
+  filter(!(scientific_name %in% sampled_species))
+```
+
 
 ```{r}
 # split new data
@@ -472,6 +501,7 @@ species_wf <-  workflow() %>%
   add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
 ```
 
+**Fit the workflows to the split training and testing data**
 
 ```{r}
 # Train the model
@@ -487,19 +517,56 @@ brm_fam_fit2 <- lmer_wflow %>%
 brm_species_fit <- species_wf %>% 
   fit(data = species_train)
 
+# Fit the workflows to the split by unique species
+brm_fam_unique <- lmer_wflow %>% 
+  fit(data = train_unique)
+```
+
+Run the models on the testing data:
+
+```{r}
+
 # predict using other workflow
 test_predict_fam2 <- predict(brm_fam_fit2, fam_test) %>% #get prediction probabilities for test data
   bind_cols(fam_test)
 
 test_predict_species <- predict(brm_species_fit, species_test) %>% 
   bind_cols(species_test)
+
+# predict using other workflow
+test_predict_unique <- predict(brm_fam_unique, test_unique) %>% #get prediction probabilities for test data
+  bind_cols(test_unique)
+
 ```
+
+---
+
+## Log/Summary
+
+* I used the split data that isolated the species and the model had a worse rmse than the two below that used 
+
+---
 
 ```{r}
 # test accuracy
 metrics(test_predict_fam2, truth = TotalDDT.trans.non, estimate = .pred)
 
 metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
+
+metrics(test_predict_unique, truth = TotalDDT.trans.non, estimate = .pred)
+```
+**Create table for each of the models**
+
+```{r}
+library(sjPlot)
+
+fam_mod <- tab_df(metrics(test_predict_fam2, truth = TotalDDT.trans.non, estimate = .pred))
+species_mod <- tab_df(metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred))
+species_split_mod <- tab_df(metrics(test_predict_unique, truth = TotalDDT.trans.non, estimate = .pred))
+
+species_mod
+fam_mod
+species_split_mod
 ```
 
 ---
@@ -511,5 +578,7 @@ metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
 * Model performed better with species as a random effect vs family as a random effect.
 
 * Now that we've figured out random effects in tidymodels, what about adding censoring??
+
+* Tables are printed above
 
 ---
