@@ -66,6 +66,10 @@ fish.reg = fish.reg %>%
   dplyr::mutate(Censored = ifelse(TotalDDT.trans == 0, "interval","none"), 
                 Detection.Limit = ifelse(is.na(MDL.min), 0.5,log1p(MDL.min/Lipid))) %>% 
   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
+#log1p log and plus 1 because cant handlge negativ vaalu
+# if DDT conc = 0 they made it a interval, if na its 0.5, and no MDL is found it set it to 0.5 
+# upper is MLD> min 
+# annything bellow upper is censored! 
 ```
 
 #### What did data look like prior to transformations? 
@@ -409,3 +413,14 @@ cowplot::plot_grid(fixed.effects.plot,random.effects.plot, ncol = 2,  rel_height
 - intervals type of interval calculation?
 - create a mdoel, use predict to test linear_mdoel on the new data 
 - fiexed effect model: special case assuming =0 meaning no between study heterogeneity all that all studies share a single true effect size 
+
+- right vs eft censoring
+
+
+## tobit model 
+
+
+```{r}
+
+```
+
