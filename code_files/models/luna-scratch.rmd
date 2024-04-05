@@ -352,7 +352,7 @@ fish_clean_test <- fish_clean %>%
   left_join(taxa_filter, by = "scientific_name")
 ```
 
-Run the same tests onthem but have family as a random effect
+Run the same tests on them but have family as a random effect
 ```{r}
 
 fish_clean_original <- read_csv(here::here("data", "data_outputs", "fish_clean_ORIGINAL.csv"))
@@ -467,8 +467,8 @@ brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~
                             data = fish_clean, # changed data
                             prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
 
-brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                 TotalDDT.sed.trans * feeding_position + (1|Family), 
+brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
+                                   TotalDDT.sed.trans * feeding_position + (1|Family), 
                        data =fish.clean.fam, # changed data
                        prior = c(
                                  set_prior("cauchy(0, 0.5)", class = "b"),
@@ -494,4 +494,58 @@ R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.year), 
                    FUN=bayes_R2)
 ```
+
+
+To look at the resideuals use this link: https://cran.r-project.org/web/packages/tidybayes/vignettes/tidybayes-residuals.html
+
+To create a loop that does leave one out cross validation but separates the data by group 
+- create a list of species `species_name_clean`
+- for loop that...
+  - removes a species and sets it as the test data from `fish.clean.fam`
+  - all other data is saved as the training data
+  - runs model on the training data
+  - predicts the values on the test data 
+  - calculates the RMSE of those values
+  - finds the mean RMSE of that round
+  - saves that RMSE into an outside dataframe
+  - moves onto the next species and does it again
+- the output is a dataframe with 61 RMSE values 
+- calculate the mean RMSE of those values
+
+```{r}
+# list of species names 
+species_name_clean[2, 1]
+
+test <- fish.clean.fam %>% 
+  filter(scientific_name %in% species_name_clean[i, 1])
+
+train <- fish.clean.fam %>% 
+  filter(!scientific_name %in% species_name_clean[i, 1]) # remove the species
+
+# model <- add model here on training data
+
+# predictions <- predict(model, test)
+
+# coef_df <- data.frame( R2 = R2(predictions, test$TotalDDT.trans.non),
+                       # RMSE = RMSE(predictions, test$TotalDDT.trans.non),
+                       # MAE = MAE(predictions, test$TotalDDT.trans.non))
+
+# coef <- data.frame( group = [i], 
+                    # R2 = mean(R2),
+                    # RMSE = mean(RMSE),
+                    # MAE = mean(MAE))
+
+yay <- data.frame()
+
+for (group in seq_along(species_name_clean)) {
+  test <- fish.clean.fam %>% 
+    filter(scientific_name %in% species_name_clean[group, 1])
+
+  train <- fish.clean.fam %>% 
+    filter(!scientific_name %in% species_name_clean[group, 1]) # remove the species
+  
+
+}
+```
+
 
