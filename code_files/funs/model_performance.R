@@ -27,8 +27,11 @@ model_performance <- function(model_name, data_frame) {
     train <- data_frame %>%
       filter(!scientific_name %in% species_name_clean[group, 1]) # remove the species
 
+    # refit the model
+
+
     # predict using other workflow
-    predictions <- predict(model, train) %>% #get prediction probabilities for test data
+    predictions <- predict(fit_model, train) %>% #get prediction probabilities for test data
       bind_cols(train)
 
     # print RMSE, R2 and MAE values

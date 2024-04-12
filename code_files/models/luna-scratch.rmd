@@ -273,19 +273,18 @@ rmse(y = kfp$y, yrep = kfp$yrep)
 sed_2018 <- rast(here::here("data", "sediment_data", "sediment_rasters", "sediment_totalDDT_2003.grd"))
 plot(sed_2018)
 
-summ <- readRDS(here::here("data", "fish_data", "pelagic_nearshore_fish_zones.rds"))
-plot(summ)
+areas <- readRDS(here::here("data", "fish_data", "pelagic_nearshore_fish_zones.rds"))
 
 ddt_fish <- read_csv(here::here("data", "data_outputs", "fish_clean.csv")) %>%
   na.omit(Co) %>% 
   st_as_sf(coords = c("CompositeTargetLongitude", "CompositeTargetLatitude"), 
-           crs = st_crs(summ))
+           crs = st_crs(areas))
 
 
 leaflet() %>%  
   setView(lng = -118.7, lat = 33.5, zoom = 7.5) %>% 
   addProviderTiles(providers$Esri.WorldImagery) %>% 
-  addGeoJSON(summ$geometry,
+  addGeoJSON(areas$geometry,
              color = "#CEE0EAFF",
              weight = 2,
              fillOpacity = 0.1,
@@ -350,6 +349,12 @@ taxa_filter <- taxa %>%
 
 fish_clean_test <- fish_clean %>% 
   left_join(taxa_filter, by = "scientific_name")
+
+species_common_science <- fish_clean_test %>% 
+  dplyr::select(CompositeCommonName, scientific_name)
+
+# save the file as a data output
+#write.csv(species_common_science, here::here("data/data_outputs/species_common_science.csv"))
 ```
 
 Run the same tests on them but have family as a random effect
@@ -602,6 +607,8 @@ df_means <- df %>%
   summarize_each(mean) %>%  # get the mean values
   mutate(model = quo_name(quo(brm_fam_fit2))) # add the model name
 
+
+
 ```
 # Create a function that calculates how well the models do
 ```{r}
@@ -655,6 +662,22 @@ model_performance <- function(model_name, data_frame) {
 }
 
 
+
+```
+
+
+
+# Get the areas with lat and long points 
+
+```{r}
+# I did this above
+#areas <- readRDS(here::here("data", "fish_data", "pelagic_nearshore_fish_zones.rds"))
+areas_sed <- fish_clean %>% 
+  dplyr::select(CompositeStationArea, TotalDDT.sed) %>% 
+  dplyr::group_by(CompositeStationArea) %>% 
+  summarize(TotalDDT.sed = mean(TotalDDT.sed))
+
+areas_sed_ddt <- areas %>% 
 ```
 
 
