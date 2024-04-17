@@ -15,6 +15,12 @@ set.seed(23)
 
 ---
 
+### Summary of document
+
+This file has been a continuous progress of applying tidymodels to the models. This document includes errors and failed attempts, but tracks the whole work process of figuring out the best methods of machine learning in our modeling.
+
+In the last section, I used the multilevelmod extension package to add family as a random effect. The cleaned process of successes will be continuously transferred to the tidymodels_clean.Rmd file where I will run the models with species and family as both fixed and random effects.
+
 ### The Data
 
 The data used in this project will be:
@@ -47,10 +53,6 @@ Fish DDT data contains total DDT concentration, lipid normalized DDT data, and o
 * Running models again using family instead of species
 
 *Note*: At the bottom of each section, there is a summary of what problems I encountered, and what needs to be fixed/looked into moving forward. After looking through the code, read through this section before proceeding with updates.
-
-### Summary of document
-
-This file has been a continuous progress of applying tidymodels to the models. In the last section, I used the multilevelmod extension package to add family as a random effect. I will be continuing this process in the tidymodels_clean.Rmd file where I will run the models with species and family as both fixed and random effects.
 
 ## <span style="color: grey;">Code</span>
 
@@ -144,15 +146,13 @@ brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.
 
 ### My Code:
 
-=======
 * ML Attempt #1 - FAILED
 * ML Attempt #2 - FAILED
 * ML Attempt #3 - SUCCESS
-* Adding random effects
+* Adding random effects with multilevel mod
 
 *Note*: At the bottom of the page, there is a summary of what problems I encountered, and what needs to be fixed/looked into moving forward. After looking through the code, read through this section before proceeding with updates.
 
->>>>>>> e4baa05f8352564c634f50a3aa8735fd8c0ec066
 This is a series of my code. I will be keeping code that has failed as well, but commenting out which lines do not run. Under this section, there will be a log of what went wrong, and what we need to fix moving forward.
 
 #### ML attempt 1:
@@ -243,7 +243,6 @@ brm_wf_fit <- brm_wf %>%
 predictions <- brm_wf_fit %>% 
   predict(new_data = fish_test)
 ```
-
 
 It worked, so the priors did appear to be the problem, need to figure out how to add priors to set_engine().
 
@@ -379,6 +378,8 @@ metrics(test_predict_brm, truth = TotalDDT.trans.non, estimate = .pred)
 
 ### Splitting the Data
 
+This was Luna's and my really short ChatGPT attempt to figure out how to split the data and leave out species. I do not want to delete this because I am not sure if we ended up using any of this.
+
 ```{r}
 set.seed(23)
 
@@ -414,7 +415,11 @@ test_data_unique <- fish_cleaned %>%
 
 ### Running models again using family instead of species
 
+In this section, I reran the models using family instead of species, and to include them as a random effect, I found a parsnip extention package called **multilevelmod** which allows us to use bayesian regression with random effects.
+
 *This is Luna's code*
+
+Luna was able to add family into the data frame so we can use that as a predictor instead of species for generalizability.
 
 ```{r}
 library(rfishbase)
@@ -450,6 +455,8 @@ fish_clean_fam <- fish_cleaned %>%
 ```
 
 **Splitting the data by unique species**
+
+This is also code that Luna was able to complete.
 - Adding this code chunk here with the updated species names
 ```{r}
 set.seed(23)
@@ -469,6 +476,8 @@ print(sort(unique(test_unique$Family)))
 ```
 *Now this is my code again*
 
+**Data Splitting**
+
 ```{r}
 # split new data
 fam_split <- initial_split(fish_clean_fam, prop = 0.7)
@@ -480,11 +489,16 @@ species_train <- training(species_split)
 species_test <- testing(species_split)
 ```
 
+
+**Setting workflow**
+
 I am trying a new way based on multilevelmod documentation
 
 ```{r}
+# load multilevelmod package
 library(multilevelmod)
-# create spec
+
+# create model specusing stan_glmer
 brm_fish_spec_fam <- linear_reg() %>% 
   set_engine("stan_glmer", 
              prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
@@ -497,14 +511,15 @@ brm_fish_spec_fam <- linear_reg() %>%
   #add_model(brm_fish_spec_fam) %>% 
   #add_formula(TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
 
-# this is the workflow suggested by multilevelmod 
-# I will try it to see if i get same results
+# this is the workflow suggested by multilevelmod ----
+
+# workflow with family as a random effect
 lmer_wflow <- 
   workflow() %>% 
   add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
   add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
 
-# species workflow
+# workflow with species as a random effect
 species_wf <-  workflow() %>% 
   add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, CompositeCommonName)) %>% 
   add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
@@ -514,19 +529,22 @@ species_wf <-  workflow() %>%
 
 ```{r}
 # Train the model
+# This first workflow did not work
 #brm_fam_fit <- fam_wflow %>% 
   #fit(data = fam_train) 
 
-# This first workflow did not work
+# train using the multilevelmod workflows ----
 
-# train using the other workflow
+# family
 brm_fam_fit2 <- lmer_wflow %>% 
   fit(data = fam_train) 
 
+# species
 brm_species_fit <- species_wf %>% 
   fit(data = species_train)
 
 # Fit the workflows to the split by unique species
+# Luna's addition : 
 brm_fam_unique <- lmer_wflow %>% 
   fit(data = train_unique)
 ```
@@ -534,10 +552,12 @@ brm_fam_unique <- lmer_wflow %>%
 Run the models on the testing data:
 
 ```{r}
-# predict using other workflow
+# predict using multilevelmod workflow ----
+# family
 test_predict_fam2 <- predict(brm_fam_fit2, fam_test) %>% #get prediction probabilities for test data
   bind_cols(fam_test)
 
+# species
 test_predict_species <- predict(brm_species_fit, species_test) %>% 
   bind_cols(species_test)
 
@@ -545,15 +565,6 @@ test_predict_species <- predict(brm_species_fit, species_test) %>%
 test_predict_unique <- predict(brm_fam_unique, test_unique) %>% #get prediction probabilities for test data
   bind_cols(test_unique)
 ```
-
----
-
-## Log/Summary
-
-* I used the split data that isolated the species and the model had a worse rmse than the two below that used 
-- Luna
-
----
 
 ```{r}
 # test accuracy
@@ -590,4 +601,18 @@ species_split_mod
 
 * Tables are printed above
 
+* I used the split data that isolated the species and the model had a worse rmse than the two below that used 
+- Luna
+
 ---
+
+### Testing feature selection
+
+Now that we have almost finished the ML model, we need to figure out which combination of predictors performs the best.
+
+```{r}
+lmer_wflow %>% 
+  fit(fam_train) %>% 
+  extract_fit_engine()
+```
+

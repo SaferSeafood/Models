@@ -37,6 +37,7 @@ Fish DDT data contains total DDT concentration, lipid normalized DDT data, and o
 ### Summary of document
 
 This file is for comparing the models using family and species as both fixed and random effects in tidymodels.
+The fixed effects did not run due to an error, but this is okay for now at least because the clients use random effects.
 
 ## <span style="color: grey;">Code</span>
 
