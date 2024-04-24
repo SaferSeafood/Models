@@ -1,0 +1,124 @@
+---
+title: "feature selection with projpred"
+author: "Hope Hahn"
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(projpred)
+library(tidyverse)
+library(rfishbase)
+library(tidymodels)
+library(multilevelmod)
+```
+
+## Overview
+
+This document contains attempted feature selection using the projpred package.
+
+#### Load in Data
+```{r}
+# read in cleaned data
+fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+```
+
+***Add family to the data***
+
+```{r}
+# get the unique species names - should be 61
+species_name <- unique(fish_cleaned$scientific_name)
+
+# look at the list of species using the names - these are different sizes
+species_info <- species(species_list = species_name)
+
+# update the names of the fish to match fishbase
+species_name_clean <- as.data.frame(species_name) %>% 
+  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                          TRUE ~ species_name))
+
+# look at the taxa of the fish 
+taxa <- rfishbase::load_taxa()
+
+# filter the taxa based on name 
+taxa_filter <- taxa %>% 
+  filter(Species %in% species_name_clean$species_name) %>% 
+  dplyr::select(scientific_name = Species, Family, Genus)
+
+fish_clean_fam <- fish_cleaned %>% 
+  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                                            TRUE ~ scientific_name)) %>%
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
+                                "Loliginidae",
+                                Family))
+
+# split new data
+fam_split <- initial_split(fish_clean_fam, prop = 0.7)
+fam_train <- training(fam_split)
+fam_test <- testing(fam_split)
+```
+
+#### Set reference model 
+```{r}
+# set reference model
+# create spec
+brm_fish_spec_fam <- linear_reg() %>% 
+  set_engine("stan_glmer", 
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+
+# this is the workflow suggested by multilevelmod 
+lmer_wflow <- 
+  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+
+# train using the other workflow
+brm_fam_fit2 <- lmer_wflow %>% 
+  fit(data = fam_train) 
+```
+
+#### projpred
+
+```{r}
+# set reference model (client's model)
+refm_obj <- get_refmodel(brm_fam_fit2)
+
+# preliminary (fast) run
+# Preliminary cv_varsel() run:
+# had to take out method = L1 because reference model is different format
+cvvs_fast <- cv_varsel(
+  refm_obj,
+  validate_search = FALSE,
+  ### Only for the sake of speed (not recommended in general):
+  refit_prj = FALSE,
+  ###
+  nterms_max = 7,
+  ### In interactive use, we recommend not to deactivate the verbose mode:
+  verbose = FALSE
+  ### 
+)
+
+plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+```{r}
+# Preliminary cv_varsel() run with `refit_prj = TRUE`:
+cvvs_fast_refit <- cv_varsel(
+  cvvs_fast,
+  ### Only for the sake of speed (not recommended in general):
+  nclusters_pred = 20,
+  ###
+  ### In interactive use, we recommend not to deactivate the verbose mode:
+  verbose = FALSE
+  ### 
+)
+
+plot(cvvs_fast_refit, stats = "mlpd", ranking_nterms_max = NA)
+```
+
