@@ -351,7 +351,8 @@ fish_clean_test <- fish_clean %>%
   left_join(taxa_filter, by = "scientific_name")
 
 species_common_science <- fish_clean_test %>% 
-  dplyr::select(CompositeCommonName, scientific_name)
+  dplyr::select(CompositeCommonName, scientific_name, Family, trophic_category, feeding_position) %>% 
+  distinct()
 
 # save the file as a data output
 #write.csv(species_common_science, here::here("data/data_outputs/species_common_science.csv"))
@@ -677,7 +678,19 @@ areas_sed <- fish_clean %>%
   dplyr::group_by(CompositeStationArea) %>% 
   summarize(TotalDDT.sed = mean(TotalDDT.sed))
 
-areas_sed_ddt <- areas %>% 
+```
+
+Testing the shinydashboard prediction
+```{r}
+
+df <- predict(brm.diet.habitat.year.fam.clean,
+              data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
+                   trophic_category = "Secondary Carnivore", # get from life history characteristics
+                   feeding_position = "Benthopelagic", # get from life history characteristics
+                   Family = "Sciaenidae",
+                   Year = 2))
+
+saveRDS(brm.diet.habitat.year.fam.clean, file = "/Users/lunacatalan/Documents/dev/capstone/SaferSeafood/data/data_outputs/brm_mod.rda")
 ```
 
 

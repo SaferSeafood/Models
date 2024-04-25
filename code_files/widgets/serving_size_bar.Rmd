@@ -1,0 +1,47 @@
+Create a bar that indicated the serving size recomendation based on the model output:
+
+Needed: 1. Dataframe with serving size column and threshold column (based on the table)
+
+![](images/Screenshot%202024-04-25%20at%2012.16.41%20PM.png)
+
+```{r message = FALSE}
+library(tidyverse)
+
+```
+
+Create dataframe 
+```{r}
+# Create variables
+size <- c("0", "1", "2", "3", "4", "5", "6", "7", "7+")
+threshold<- c(2100, 1000, 520, 390, 310, 260, 220, 220, 21)
+
+# create datagrame with these vectors  
+serving_size_df <- data.frame(size, threshold)
+
+# set prediction value
+prediction <- data.frame(pred = 1100)
+
+# create assignment for serving size based on prediction value
+assignment_of_serving <- prediction %>% 
+  mutate(rec = ifelse(prediction <= 21,
+                      "Safe",
+                      ifelse(prediction > 21 & prediction <= 220,
+                             7,
+                             ifelse(prediction > 220 & prediction <= 260,
+                                    6,
+                                    ifelse(prediction > 260 & prediction <= 310,
+                                           5, 
+                                           ifelse(prediction > 310 & prediction <= 390,
+                                                  4, 
+                                                  ifelse(prediction > 390 & prediction <= 520,
+                                                         3,
+                                                         ifelse(prediction > 520 & prediction <= 1000,
+                                                                2,
+                                                                ifelse(prediction > 1000 & prediction <= 2100,
+                                                                       1,
+                                                                       ifelse(prediction > 2100,
+                                                                              "Do Not Consume",
+                                                                              NA))))))))))
+
+```
+
