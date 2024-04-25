@@ -15,13 +15,14 @@ library(tidymodels)
 library(multilevelmod)
 library(rstanarm)
 library(posterior)
-```
+``` 
 
 ## Overview
 
-This document contains attempted feature selection using the projpred package.
+This document contains code for feature selection using the projpred package. To use this package for feature selection, you set a reference model and then test combinations of predictors to see the minimum amount of predictors that has the same model accuracy.
 
-#### Load in Data
+### Load in Data
+
 ```{r}
 # read in cleaned data
 fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
@@ -66,14 +67,15 @@ fam_train <- training(fam_split)
 fam_test <- testing(fam_split)
 ```
 
-#### Set reference model 
+### Set reference model 
 
-this didnt work try again
+I tried to set a the reference model using the tidymodels workflow, but this did not work. Instead I'll use the rstanarm package using the stan_glmer function using the same formula. I think this should be the same because the engine of this model uses the rstanarm::stan_glmer(). 
+
 ```{r eval = FALSE}
 # set reference model
 # create spec
 brm_fish_spec_fam <- linear_reg() %>% 
-  set_engine("stan_glmer", 
+  set_engine("stan_glmer",  
              prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
   set_mode("regression")
 
@@ -88,13 +90,15 @@ brm_fam_fit2 <- lmer_wflow %>%
   fit(data = fam_train) 
 ```
 
-use rstanarm to set reference model becasue it wont work in tidymodels
-1. set reference model using stan_glmer function
-2. use outputted feature selection in tidymodels ML and test rmse
+set reference model using stan_glmer() function but the same formula as the clients: 
+This did not work unless I selected only the predictors in the model so tidy the data to select these.
+
 ```{r}
+# create training dataset 
 fish_projpred_train <- fam_train %>% 
   select(TotalDDT.trans.non, TotalDDT.sed.trans, trophic_category, feeding_position, Year, Family)
 
+# set reference model
 refm_fit <- stan_glmer(
   TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family),
   family = gaussian(),
@@ -104,7 +108,10 @@ refm_fit <- stan_glmer(
 )
 ```
 
-#### projpred
+### Incorporating projpred
+
+In the projpred vignette, they set the method to L1, but it did not work with our multilevel model, so I took it out.
+Plot the model performance using rmse. 
 
 ```{r}
 # set reference model (client's model)
@@ -119,7 +126,7 @@ cvvs_fast <- cv_varsel(
   ### Only for the sake of speed (not recommended in general):
   refit_prj = FALSE,
   ###
-  nterms_max = 6,
+  nterms_max = 15,
   ### In interactive use, we recommend not to deactivate the verbose mode:
   verbose = FALSE
   ### 
@@ -133,7 +140,7 @@ plot(cvvs_fast, stats = "rmse", ranking_nterms_max = NA)
 cvvs_fast_refit <- cv_varsel(
   cvvs_fast,
   ### Only for the sake of speed (not recommended in general):
-  nclusters_pred = 6,
+  nclusters_pred = 15,
   ###
   ### In interactive use, we recommend not to deactivate the verbose mode:
   verbose = FALSE
@@ -143,6 +150,7 @@ cvvs_fast_refit <- cv_varsel(
 plot(cvvs_fast_refit, stats = "rmse", ranking_nterms_max = NA)
 ```
 
+run the model with k-fold cross validation.
 ```{r}
 ncores <- parallel::detectCores(logical = FALSE)
 
@@ -176,6 +184,7 @@ plot(cvvs, stats = "rmse", deltas = TRUE)
 
 suggest_size(cvvs, stat = "rmse")
 ```
+
 Ranking predictors
 
 ```{r}
