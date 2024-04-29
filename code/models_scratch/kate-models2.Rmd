@@ -1,0 +1,293 @@
+
+
+
+```{r}
+# Regress fish [DDT] against sediment [DDT]
+
+# install and/or load the necessary R packages
+if("pacman" %in% installed.packages() == FALSE){install.packages("pacman")}
+pacman::p_load(geojsonR, factoextra,sf,dplyr, ggplot2, maps, fields,raster, 
+               MuMIn, lubridate, tidyr,ggh4x, lme4,sdmTMB,inlabru,cowplot,marmap,sjPlot, tidyverse, plyr, tidybayes, brms, bayesplot, loo,ggeffects,
+               DHARMa)
+               #rgeos, INLAutils, DHARMa.helpers)
+
+```
+
+
+```{r}
+##################################################################################################################
+################### Load in data and add censoring column   ###################
+##################################################################################################################
+
+# Read in sediment data 
+sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_zone_summary.rds")) %>%
+  dplyr::select(Name, Est.2003, Est.2008, Est.2013, Est.2018) %>% 
+  gather(key="Year",value="TotalDDT",Est.2003:Est.2018) %>% 
+  dplyr::mutate(Year = case_when(Year == "Est.2003" ~ "2003",
+                                 Year == "Est.2008" ~ "2008",
+                                 Year == "Est.2013" ~ "2013",
+                                 Year == "Est.2018" ~ "2018")) %>% 
+  dplyr::group_by(Name, Year) %>%
+  dplyr::summarize(TotalDDT.sed = (mean((TotalDDT)))) %>%
+  dplyr::ungroup() 
+
+# Read in fish life history 
+fish_lh = read.csv(here::here("data","fish_data","fish_life_history.csv")) %>% 
+  dplyr::mutate(species = tolower(species))
+
+# select the long and latitude
+fish_location = read.csv(here::here("data","fish_data","totalDDT_fish_southernCA.csv")) %>% 
+  dplyr::select(CompositeCompositeID, CompositeTargetLatitude, CompositeTargetLongitude)
+
+# Read in fish data, and join with sediments 
+fish_reg = read.csv(here::here("data","fish_data","totalDDX_fish_southernCA.csv")) %>% # Read in fish DDT values 
+  # We have sediment data blocked off by 2003, 2008, 2013, and 2018. Figure out what (continous) fish years go with which sediment years. 
+  dplyr::mutate(NewYear = case_when(Year %in% c(1995:2005) ~ "2003", 
+                                    Year %in% c(2006:2010) ~ "2008", 
+                                    Year %in% c(2011:2015) ~ "2013", 
+                                    Year %in% c(2016:2022) ~ "2018")) %>% 
+  left_join(., fish_location) %>% 
+  left_join(., sediment_summary, by=c("CompositeStationArea"="Name", 
+                                      "NewYear"="Year")) %>% 
+  dplyr::left_join(., fish_lh, by=c("CompositeCommonName"="species")) %>% 
+  dplyr::mutate(feeding_position = case_when(feeding_position == "pelagic" ~ "Pelagic",
+                                             feeding_position == "midwater" ~ "Midwater",
+                                             feeding_position == "benthopelagic " ~ "Benthopelagic",
+                                             feeding_position == "benthic" ~ "Benthic", 
+                                             TRUE ~ feeding_position)) %>% 
+  dplyr::mutate(feeding_position = factor(feeding_position, levels=c("Pelagic","Midwater","Benthopelagic","Benthic"))) %>% 
+  dplyr::mutate(trophic_category = case_when(trophic_category == "herbivore" ~ "Herbivore",
+                                             trophic_category == "primary_carnivore" ~ "Primary Carnivore",
+                                             trophic_category == "secondary_carnivore" ~ "Secondary Carnivore",
+                                             trophic_category == "tertiary_carnivore" ~ "Tertiary Carnivore")) 
+  
+# Add transformed columns (TotalDDT which is non-lipid normalized for fish)
+fish_reg$TotalDDT.trans.non = log(fish_reg$TotalDDT + 1) # add + 1 to account for 0 values
+fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
+
+# Add censoring for values equal to zero (so value is constrained to fall between zero and MDL)
+fish_reg = fish_reg %>% 
+   dplyr::mutate(Censored = ifelse(TotalDDT.trans.non == 0, "interval","none"), 
+                 
+                 # ask about this limit since its divided by Lipid
+                 Detection.Limit = ifelse(is.na(MDL.min), 
+                                          0.5, # if MDL.min is an NA value fill with this value
+                                          log1p(MDL.min))) %>% 
+  
+   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998 
+
+
+##################################################################################################################
+################### Plot non normalized fish against sediments   ###################
+##################################################################################################################
+
+fish_reg %>% 
+  dplyr::mutate(feeding_position = factor(feeding_position, 
+                                          levels=c("Benthic","Benthopelagic","Midwater","Pelagic"))) %>% 
+  ggplot(mapping=aes(x=TotalDDT.sed.trans, # ddt concentration in sediment 
+                     y=TotalDDT.trans.non, # ddt concentration in fish
+                     fill= trophic_category )) +
+  geom_jitter(size=1.5, pch=21) +
+  ylab("[DDXfish] ng/g lipid") +
+  xlab("[DDXsed] ng/g dw") +
+  facet_wrap(~feeding_position, nrow=1)+
+  scale_fill_manual(values = c("#ffffcc","#a1dab4","#41b6c4","#225ea8"), name="Diet")+
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+# Some simple modeling 
+
+To understand Baysian modeling: https://www.r-bloggers.com/2019/05/bayesian-models-in-r-2/
+
+## Exploring the variables 
+```{r}
+library(tidyverse)
+
+fish_reg %>% 
+  ggplot(aes(x = TotalDDT.sed.trans, 
+             y = TotalDDT.trans.non)) +
+  geom_point() +
+  geom_smooth(method = lm, # line model
+              formula = y ~ x, # specify polynomial line
+              color = "orange", 
+              linewidth = 1.2, 
+              se = FALSE) +
+  labs(x = "Total DDT in sediment (transformed)",
+       y = "Total DDT in transformed data (non-lipid normalized)") +
+  theme_classic()
+
+```
+
+
+```{r}
+library(tidyverse)
+library(rsample)
+library(glmnet)
+library(skimr)
+
+set.seed(123)
+
+fish_clean <- fish_reg %>% 
+  dplyr::select(-c(MDL.mean, MDL.min))
+
+# -----------------------
+# Split the data 
+# -----------------------
+fish_split <- initial_split(fish_clean)
+fish_split
+# -----------------------
+# Train and test data 
+# -----------------------
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
+
+# -----------------------
+# Model parameters 
+# -----------------------
+
+#Create training feature matrices using model.matrix() (auto encoding of categorical variables)
+X <- model.matrix(TotalDDT ~ TotalDDT.sed.trans, 
+                  data = fish_train) # make all variables predictors
+
+# transform y with log() transformation
+Y <- fish_train$TotalDDT.trans.non
+
+
+# -----------------------
+# Regressions
+# -----------------------
+
+#fit a ridge model, passing X,Y,alpha to glmnet()
+lasso <- glmnet(
+  x = X,
+  y = Y,
+  alpha = 1 # tells if you want function to be ridge (0), lasso (1)
+)
+
+plot(lasso, xvar = "lambda") 
+```
+
+# Run BRMS Models 
+
+Why BRMS?
+
+```{r}
+##################################################################################################################
+################### Run BRMS Models   ###################
+##################################################################################################################
+
+# Look at best structure for model 
+brm.none = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, 
+               data = fish_reg, 
+               prior = c(set_prior("cauchy(0, 0.5)", 
+                                   class = "b")))
+
+brm.habitat.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, 
+                        data = fish_reg, 
+                        prior = c(set_prior("cauchy(0, 0.5)", 
+                                            class = "b")))
+
+brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
+                            data =  fish_reg, 
+                            prior = c(set_prior("cauchy(0, 0.5)", 
+                                                class = "b")))
+
+brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
+                     data =fish_reg, 
+                     prior = c(set_prior("cauchy(0, 0.5)", 
+                                         class = "b")))
+
+brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
+                         data =fish_reg, 
+                         prior = c(set_prior("cauchy(0, 0.5)", 
+                                             class = "b")))
+
+brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category, 
+                  data =fish_reg, 
+                  prior = c(set_prior("cauchy(0, 0.5)", 
+                                      class = "b")))
+
+brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position, 
+                  data =fish_reg, 
+                  prior = c(set_prior("cauchy(0, 0.5)", 
+                                      class = "b")))
+
+brm.diet.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position, 
+                       data =fish_reg, 
+                       prior = c(set_prior("cauchy(0, 0.5)", 
+                                           class = "b")))
+
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
+                            data =fish_reg, 
+                            prior = c(set_prior("cauchy(0, 0.5)", 
+                                                class = "b")))
+
+brm.diet.habitat.species = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position  + (1|CompositeCommonName), 
+                               data =fish_reg, 
+                               prior = c(
+                                 set_prior("cauchy(0, 0.5)", class = "b"),   
+                                 set_prior("cauchy(0, 2)", class = "sd")))
+
+brm.diet.habitat.species.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), 
+                                    data =fish_reg, 
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),   
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+```
+
+# Cross validation 
+
+Information about understandingg leave one out cross validation (LOO): https://iopscience.iop.org/article/10.3847/1538-3881/acab67#:~:text=The%20elpdLOO%20score%20quantifies,model%20under%20the%20chosen%20prior.
+
+Higher elpd means higher predictive accuracy:
+- When you compare across these models, the model that includes diet, habitat, species, and year has the largest elpd_loo value, indicating that it has better predicitve accuracy. 
+
+```{r}
+# Compare LOOIC
+LOO.results = LOO(brm.none, brm.habitat.slope,brm.habitat, 
+                  brm.habitat.intercept,
+                  brm.diet.slope,brm.diet.intercept,brm.trophic,
+                  brm.diet.habitat,brm.diet.habitat.year, 
+                  brm.diet.habitat.species, brm.diet.habitat.species.year)
+
+mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
+```
+
+
+
+### Further Exploraton 
+- 
+```{r}
+fish_dat <- read_csv("/Users/katebecker/Documents/Bren/Capstone/SaferSeafood/data/fish_data/totalDDX_fish_southernCA.csv")
+
+```
+
+```{r}
+unique(fish_dat)
+```
+
+Weight Observations 
+```{r}
+# only 439 observations
+# 658 NA's 
+summary(fish_dat$WeightAvg.g)
+unique(fish_dat$TLAvgLength.mm)
+```
+
+Length Observations 
+```{r}
+# 482 NA observations 
+# 539 observations 
+
+unique(fish_dat$TLAvgLength.mm)
+summary(fish_dat$TLAvgLength.mm)
+```
+- alot of NAs here can we even find a relationship here? 
+
+
+
+```{r}
+
+```
+

@@ -1,0 +1,245 @@
+---
+title: "feature selection with projpred"
+author: "Hope Hahn"
+date: "2024-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(projpred)
+library(tidyverse)
+library(rfishbase)
+library(tidymodels)
+library(multilevelmod)
+library(rstanarm)
+library(posterior)
+``` 
+
+## Overview
+
+This document contains code for feature selection using the projpred package. To use this package for feature selection, you set a reference model and then test combinations of predictors to see the minimum amount of predictors that has the same model accuracy.
+
+### Load in Data
+
+```{r}
+# read in cleaned data
+fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+```
+
+***Add family to the data***
+
+```{r}
+# get the unique species names - should be 61
+species_name <- unique(fish_cleaned$scientific_name)
+
+# look at the list of species using the names - these are different sizes
+species_info <- species(species_list = species_name)
+
+# update the names of the fish to match fishbase
+species_name_clean <- as.data.frame(species_name) %>% 
+  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                          TRUE ~ species_name))
+
+# look at the taxa of the fish 
+taxa <- rfishbase::load_taxa()
+
+# filter the taxa based on name 
+taxa_filter <- taxa %>% 
+  filter(Species %in% species_name_clean$species_name) %>% 
+  dplyr::select(scientific_name = Species, Family, Genus)
+
+fish_clean_fam <- fish_cleaned %>% 
+  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
+                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
+                                            TRUE ~ scientific_name)) %>%
+  left_join(taxa_filter, by = "scientific_name") %>% 
+  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
+                                "Loliginidae",
+                                Family))
+
+
+# split new data
+fam_split <- initial_split(fish_clean_fam, prop = 0.7)
+fam_train <- training(fam_split)
+fam_test <- testing(fam_split)
+```
+
+### Set reference model 
+
+I tried to set a the reference model using the tidymodels workflow, but this did not work. Instead I'll use the rstanarm package using the stan_glmer function using the same formula. I think this should be the same because the engine of this model uses the rstanarm::stan_glmer(). 
+
+```{r eval = FALSE}
+# set reference model
+# create spec
+brm_fish_spec_fam <- linear_reg() %>% 
+  set_engine("stan_glmer",  
+             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
+  set_mode("regression")
+
+# this is the workflow suggested by multilevelmod 
+lmer_wflow <- 
+  workflow() %>% 
+  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
+  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+
+# train using the other workflow
+brm_fam_fit2 <- lmer_wflow %>% 
+  fit(data = fam_train) 
+```
+
+set reference model using stan_glmer() function but the same formula as the clients: 
+This did not work unless I selected only the predictors in the model so tidy the data to select these.
+
+```{r}
+# create training dataset 
+fish_projpred_train <- fam_train %>% 
+  select(TotalDDT.trans.non, TotalDDT.sed.trans, trophic_category, feeding_position, Year, Family)
+
+# set reference model
+refm_fit <- stan_glmer(
+  TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family),
+  family = gaussian(),
+  data = fish_projpred_train,
+  refresh = 0,
+  prior_intercept = rstanarm::cauchy(0, 0.5)
+)
+```
+
+### Incorporating projpred
+
+In the projpred vignette, they set the method to L1, but it did not work with our multilevel model, so I took it out.
+Plot the model performance using rmse. 
+
+```{r}
+# set reference model (client's model)
+refm_obj <- get_refmodel(refm_fit)
+
+# preliminary (fast) run
+# Preliminary cv_varsel() run:
+# had to take out method = L1 because reference model is different format
+cvvs_fast <- cv_varsel(
+  refm_obj,
+  validate_search = FALSE,
+  ### Only for the sake of speed (not recommended in general):
+  refit_prj = FALSE,
+  ###
+  nterms_max = 15,
+  ### In interactive use, we recommend not to deactivate the verbose mode:
+  verbose = FALSE
+  ### 
+)
+
+plot(cvvs_fast, stats = "rmse", ranking_nterms_max = NA)
+```
+
+```{r}
+# Preliminary cv_varsel() run with `refit_prj = TRUE`:
+cvvs_fast_refit <- cv_varsel(
+  cvvs_fast,
+  ### Only for the sake of speed (not recommended in general):
+  nclusters_pred = 15,
+  ###
+  ### In interactive use, we recommend not to deactivate the verbose mode:
+  verbose = FALSE
+  ### 
+)
+
+plot(cvvs_fast_refit, stats = "rmse", ranking_nterms_max = NA)
+```
+
+run the model with k-fold cross validation.
+```{r}
+ncores <- parallel::detectCores(logical = FALSE)
+
+# Refit the reference model K times:
+cv_fits <- run_cvfun(
+  refm_obj,
+  K = 10
+)
+
+```
+
+```{r}
+# For running projpred's CV in parallel (see cv_varsel()'s argument `parallel`):
+doParallel::registerDoParallel(ncores)
+# Final cv_varsel() run:
+cvvs <- cv_varsel(
+  refm_obj,
+  cv_method = "kfold",
+  cvfits = cv_fits,
+  ### Only for the sake of speed (not recommended in general):
+  nclusters_pred = 20,
+  ###
+  nterms_max = 5,
+  parallel = TRUE,
+  ### In interactive use, we recommend not to deactivate the verbose mode:
+  verbose = FALSE
+  ### 
+)
+
+plot(cvvs, stats = "rmse", deltas = TRUE)
+
+suggest_size(cvvs, stat = "rmse")
+```
+
+Ranking predictors
+
+```{r}
+rk <- ranking(cvvs)
+
+( pr_rk <- cv_proportions(rk) )
+
+plot(pr_rk)
+```
+
+plotting posteriors
+
+```{r warning = FALSE, message = FALSE}
+# selected optimal number of predictors
+( predictors_final <- head(rk[["fulldata"]], 7) )
+
+prj <- project(
+  refm_obj,
+  predictor_terms = predictors_final,
+  verbose = TRUE
+)
+
+prj_mat <- as.matrix(prj)
+
+prj_drws <- as_draws_matrix(prj_mat)
+prj_smmry <- summarize_draws(
+  prj_drws,
+  "median", "mad", function(x) quantile(x, probs = c(0.025, 0.975))
+)
+# Coerce to a `data.frame` because pkgdown versions > 1.6.1 don't print the
+# tibble correctly:
+prj_smmry <- as.data.frame(prj_smmry)
+print(prj_smmry, digits = 1)
+
+library(bayesplot)
+bayesplot_theme_set(ggplot2::theme_bw())
+mcmc_intervals(prj_mat) +
+  ggplot2::coord_cartesian(xlim = c(-1.5, 1.6))
+
+refm_mat <- as.matrix(refm_fit)
+mcmc_intervals(refm_mat, pars = colnames(prj_mat)) +
+  ggplot2::coord_cartesian(xlim = c(-1.5, 1.6))
+```
+
+predictions
+```{r}
+
+prj_linpred <- proj_linpred(prj, newdata = fish_projpred_train)
+cbind(fish_projpred_train, linpred = as.vector(prj_linpred$pred))
+
+prj_predict <- proj_predict(prj)
+# Using the 'bayesplot' package:
+ppc_dens_overlay(y = fish_projpred_train$TotalDDT.trans.non, yrep = prj_predict)
+```
+
+### Results/overview
+
+The interacting predictors may not be needed and may have been leading to overfitting. We will run tidymodels without these predictors and see if there is better generalizability. 
