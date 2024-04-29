@@ -173,7 +173,7 @@ cvvs <- cv_varsel(
   ### Only for the sake of speed (not recommended in general):
   nclusters_pred = 20,
   ###
-  nterms_max = 15,
+  nterms_max = 5,
   parallel = TRUE,
   ### In interactive use, we recommend not to deactivate the verbose mode:
   verbose = FALSE
@@ -240,3 +240,6 @@ prj_predict <- proj_predict(prj)
 ppc_dens_overlay(y = fish_projpred_train$TotalDDT.trans.non, yrep = prj_predict)
 ```
 
+### Results/overview
+
+The interacting predictors may not be needed and may have been leading to overfitting. We will run tidymodels without these predictors and see if there is better generalizability. 
