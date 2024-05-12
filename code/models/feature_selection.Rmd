@@ -1,6 +1,6 @@
 ---
-title: "feature selection with projpred"
-author: "Hope Hahn"
+title: "Feature Selection with Projpred"
+author: "SaferSeafood"
 date: "2024-04-24"
 output: html_document
 ---
@@ -19,7 +19,7 @@ library(posterior)
 
 ## Overview
 
-This document contains code for feature selection using the projpred package. To use this package for feature selection, you set a reference model and then test combinations of predictors to see the minimum amount of predictors that has the same model accuracy.
+This document contains code for feature selection using the projpred package. To use this package for feature selection, we need to set a reference model and then test combinations of predictors to see the minimum amount of predictors that has the same model accuracy.
 
 ### Load in Data
 

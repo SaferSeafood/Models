@@ -159,7 +159,7 @@ predict_fam_int <- predict(brm_species_fit, species_test, type = "pred_int") %>%
 
 # METRICS
 ```{r}
-randomfam <- metrics(test_predict_fam2, truth = TotalDDT.trans.non, estimate = .pred)
+randomfam <- metrics(test_predict_fam, truth = TotalDDT.trans.non, estimate = .pred)
 randomspecies <- metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
 
 randomfam
