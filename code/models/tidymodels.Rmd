@@ -1,6 +1,6 @@
 ---
-title: "Cleaned tidymodels"
-author: "Hope Hahn"
+title: "Tidymodels Testing"
+author: "SaferSeafood"
 date: "2024-03-19"
 output: html_document
 ---
@@ -15,7 +15,7 @@ library(multilevelmod)
 library(rstanarm)
 ```
 
-## <span style="color: grey;">Overview</span>
+## Overview
 
 ---
 
@@ -37,51 +37,39 @@ Fish DDT data contains total DDT concentration, lipid normalized DDT data, and o
 
 ### Summary of document
 
-All previous code processes in tidymodels can be found in tidymodels_scratch.Rmd. This file is for running the models using family and species as random effects in tidymodels.
+This document contains model testing using a machine learning approach to test predictive accuracy of our chosen model (updated model with non lipid-normalized data). The decisions to choose a model formula can be found in the BRMS_testing.Rmd file in the same folder.
 
-## <span style="color: grey;">Code</span>
+This document contains code and text describing the testing process. This document does not contain the final model, just the process of testing the model formula using training and testing datasets.
 
-### READ IN DATA/PREP
+### Highlights
+
+* Read in data/prep
+
+**Modeling Family and Species as Random Effects**
+* Create model spec
+* Create workflow
+* Train model with training data 
+* Predict on test data
+* Metrics
+
+**Feature selection**
+* Running model without interacting predictors
+
+---
+
+## Code
+
+**READ IN DATA/PREP**
 
 ```{r}
+# READ IN DATA ----
 # read in cleaned data
 fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
-```
- 
-***Add family to the data***
 
-```{r}
-# get the unique species names - should be 61
-species_name <- unique(fish_cleaned$scientific_name)
+# read in data with family 
+fish_clean_fam <- read_csv(here::here("data", "data_outputs", "fish_clean_fam.csv"))
 
-# look at the list of species using the names - these are different sizes
-species_info <- species(species_list = species_name)
-
-# update the names of the fish to match fishbase
-species_name_clean <- as.data.frame(species_name) %>% 
-  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
-                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
-                          TRUE ~ species_name))
-
-# look at the taxa of the fish 
-taxa <- rfishbase::load_taxa()
-
-# filter the taxa based on name 
-taxa_filter <- taxa %>% 
-  filter(Species %in% species_name_clean$species_name) %>% 
-  dplyr::select(scientific_name = Species, Family, Genus)
-
-fish_clean_fam <- fish_cleaned %>% 
-  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
-                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
-                                            TRUE ~ scientific_name)) %>%
-  left_join(taxa_filter, by = "scientific_name") %>% 
-  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
-                                "Loliginidae",
-                                Family))
-```
-
-```{r}
+# DATA SPLITTING ---- 
 # split new data
 fam_split <- initial_split(fish_clean_fam, prop = 0.7)
 fam_train <- training(fam_split)
@@ -92,7 +80,7 @@ species_train <- training(species_split)
 species_test <- testing(species_split)
 ```
 
-# FAMILY and SPECIES RANDOM EFFECT
+### MODELING FAMILY and SPECIES AS RANDOM EFFECTS
 
 **Create spec**
 
@@ -105,6 +93,7 @@ brm_fish_spec_fam <- linear_reg() %>%
 ```
 
 **Create workflow**
+
 ```{r}
 # this is the workflow suggested by multilevelmod 
 lmer_wflow <- 
@@ -130,7 +119,7 @@ brm_species_fit <- species_wf %>%
   fit(data = species_train)
 ```
 
-**Predict**
+**Predict on test data**
 
 ```{r}
 # prediction for family model ----
@@ -149,15 +138,10 @@ test_predict_species <- predict(brm_species_fit, species_test) %>%
 # get prediction interval and add it to the predictions
 predict_fam_int <- predict(brm_species_fit, species_test, type = "pred_int") %>% 
   bind_cols(test_predict_fam)
-
-
-# these would work if our model was the right format
-#post_pred_species <- posterior_predict(brm_species_fit, fam_test)
-
-#posterior_epred(brm_species_fit, fam_test)
 ```
 
-# METRICS
+**METRICS**
+
 ```{r}
 randomfam <- metrics(test_predict_fam, truth = TotalDDT.trans.non, estimate = .pred)
 randomspecies <- metrics(test_predict_species, truth = TotalDDT.trans.non, estimate = .pred)
@@ -166,12 +150,9 @@ randomfam
 randomspecies
 ```
 
-### export model
-```{r}
-#saveRDS(brm_species_fit, file = here::here("data", "data_outputs", "speciesRandEffect.rda"))
-```
+### Feature Selection
 
-# Runnning without the interacting predictors
+**Running model without the interacting predictors**
 
 ```{r}
 # create spec

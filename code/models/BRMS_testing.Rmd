@@ -1,6 +1,6 @@
 ---
 title: "BRMS Testing"
-author: "Hope Hahn"
+author: "SaferSeafood"
 date: "2024-05-12"
 output: html_document
 ---
@@ -36,7 +36,7 @@ The code is supplemented with text describing what we were testing and the decis
 
 ## Highlights
 
-* Data
+* Load in data
 * Run models with non-lipid normalized data
 * Compare updated model to original model
 * Run same models with family instead of species
@@ -45,7 +45,7 @@ The code is supplemented with text describing what we were testing and the decis
 
 ## Code
 
-**Load in Data**
+**Load in data**
 
 ```{r}
 # load in the cleaned data with non lipid-normalized data
@@ -233,7 +233,6 @@ brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detectio
                                       set_prior("cauchy(0, 0.5)", class = "b"),
                                       set_prior("cauchy(0, 2)", class = "sd")) 
                                     )
-
 
 R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.species.year,
