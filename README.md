@@ -19,7 +19,7 @@ This is the main repository that will be used by Master of Environmental Data Sc
 * A database of species life history characteristics.
 
 ## About the Files
-The files in this repository include code for EDS 411A that fulfill academic requirements and modeling for client deliverables. All code files exist in the folder called 'code_files', which has two folders nested within it. The '411A_files' folder contains files that have been created for analysis within academic requirements, and the 'models' folder contains the models the client provided as well as model updates the team is undertaking. Each member of the team will have a separate .rmd file in this folder that will serve as individual practice/ideas for model updates and proceeding with this project.
+The files in this repository include code to complete the deliverables for the SaferSeafood capstone project for students from the Bren School of Environmental Science & Management to complete the Master of Environmental Data Science degree. All code files exist in the folder called 'code', which has four folders nested within it: data_cleaning, functions, models, and tables. The 'data_cleaning' folder contains a script that includes all necessary data cleaning, and all cleaned data was saved as a data output in the 'data_outputs' folder within the main 'data' folder. The 'models' folder contains files of model testing processes as well as final model workflows. The 'functions' folder stores all scripts of functions created to run the model within our web application, and the 'tables' folder contains the code to output any tables used to compare model performance.
 
 ## Structure 
 The structure of the repo is as follows:
@@ -32,6 +32,8 @@ The structure of the repo is as follows:
 >       │ fish_data
 >       │ sediment_data
 >       │ data_outputs
-> └───code_files
->       │ 411A_files
+> └───code
+>       │ data_cleaning
+>       │ functions
 >       │ models
+>       │ tables
