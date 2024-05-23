@@ -22,80 +22,8 @@ fish_clean <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
 # load in the life hsitory characteristics
 fish_lh <- read_csv(here::here("data", "fish_data", "fish_life_history.csv"))
 
-# Read in sediment data 
-sediment_summary = readRDS(here::here("data","sediment_data","totalDDX_sediment_zone_summary.rds")) %>%
-  dplyr::select(Name, Est.2003, Est.2008, Est.2013, Est.2018) %>% 
-  gather(key="Year",value="TotalDDT",Est.2003:Est.2018) %>% 
-  dplyr::mutate(Year = case_when(Year == "Est.2003" ~ "2003",
-                                 Year == "Est.2008" ~ "2008",
-                                 Year == "Est.2013" ~ "2013",
-                                 Year == "Est.2018" ~ "2018")) %>% 
-  dplyr::group_by(Name, Year) %>%
-  dplyr::summarize(TotalDDT.sed = (mean((TotalDDT)))) %>%
-  dplyr::ungroup() 
-
-# get the unique species names - should be 61
-species_name <- unique(fish_clean$scientific_name)
-
-# look at the list of species using the names - these are different sizes
-species_info <- species(species_list = species_name)
-
-
-# Comparing the number of fish in the fish_clean and the fish_lh
-fish_clean_names <- as.data.frame(unique(fish_clean$scientific_name)) %>% 
-  mutate(species = `unique(fish_clean$scientific_name)`) %>% 
-  dplyr::select('species')
-
-fish_lh_names <- as.data.frame(unique(species_info$Species))
-
-# what fish are in fish_clean_names that are not in the species_info
-subset(fish_clean_names, 
-       !(fish_clean_names$species %in% species_info$Species))
-
-# Recode them into the names that are included in fishbase 
-
-# update the names of the fish to match fishbase
-species_name_clean <- as.data.frame(species_name) %>% 
-  dplyr::mutate(species_name = case_when(species_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
-                                         species_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
-                                         TRUE ~ species_name))
-
-# look at the taxa of the fish 
-taxa <- rfishbase::load_taxa()
-
-# filter the taxa based on name 
-taxa_filter <- taxa %>% 
-  filter(Species %in% species_name_clean$species_name) %>% 
-  dplyr::select(scientific_name = Species, Family, Genus)
-
-fish_clean_test <- fish_clean %>% 
-  left_join(taxa_filter, by = "scientific_name")
-
-species_common_science <- fish_clean_test %>% 
-  dplyr::select(CompositeCommonName, scientific_name, Family, trophic_category, feeding_position) %>% 
-  distinct()
-
-fish_clean_original <- read_csv(here::here("data", "data_outputs", "fish_clean_ORIGINAL.csv"))
-
-# add the family and genus to the dataframe
-fish.reg.fam <- fish_clean_original %>% 
-  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
-                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
-                                            TRUE ~ scientific_name)) %>%
-  left_join(taxa_filter, by = "scientific_name") %>% 
-  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
-                                "Loliginidae",
-                                Family))
-
-# add the family and genus to the dataframe
-fish.clean.fam <- fish_clean %>% 
-  dplyr::mutate(scientific_name = case_when(scientific_name == "Embiotica jacksoni" ~ "Embiotoca jacksoni",
-                                            scientific_name ==  "Rhinobatos productus" ~ "Pseudobatos productus",
-                                            TRUE ~ scientific_name)) %>%
-  left_join(taxa_filter, by = "scientific_name") %>% 
-  dplyr::mutate(Family = ifelse(scientific_name == "Doryteuthis opalescens",
-                                "Loliginidae",
-                                Family))
+# load in data with family
+fish.clean.fam <- read_csv(here::here("data", "data_outputs", "fish_clean_fam.csv"))
 ```
 
 **The model**
@@ -107,8 +35,6 @@ brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detectio
                                       prior = c(set_prior("cauchy(0, 0.5)", class = "b"),
                                                 set_prior("cauchy(0, 2)", class = "sd")) 
 )
-
-
 ```
 
 **Getting and plotting posterior range**
@@ -121,67 +47,48 @@ new_data <- data.frame(TotalDDT.sed.trans = 7.288251, # get from fishing zone
                        Family = "Sciaenidae",
                        Year = 2)
 
-new_data2 <- data.frame(TotalDDT.sed.trans = 0.238402, # get from fishing zone
-                       trophic_category = "Secondary Carnivore", # get from life history characteristics
-                       feeding_position = "Benthopelagic", # get from life history characteristics
-                       Family = "Sciaenidae",
-                       Year = 2)
-
 # predict posteriors
 # using posterior predict for now
-post_pred2 <- posterior_predict(brm.diet.habitat.year.fam.clean, newdata = new_data2)
 post_pred <- posterior_predict(brm.diet.habitat.year.fam.clean, newdata = new_data)
 
 # create df of them
 df_pred <- as.data.frame(post_pred) %>% 
-  mutate(V1_untransform = exp(V1-1))
-
-df_pred2 <- as.data.frame(post_pred2) %>% 
-  mutate(V1_untransform = exp(V1-1))
+  mutate(V1_non = exp(V1) - 1) 
 
 # get the prediction point
-pred_point <- df_pred %>% 
-  summarize(mean = mean(V1_untransform))
+#pred_point <- df_pred %>% 
+  #summarize(mean = mean(V1_untransform))
 
-
-# plot on the transformed data
-ggplot(df_pred, aes(x = V1)) +
-  geom_histogram(aes(y = ..density..),
-                 alpha = 0) +
-  geom_density(bw = 0.3) + # bw for smoothing
-  theme_classic() +
-  labs(x = "DDT Concentration (ng/g)",
-       y = NULL) +
-  theme(axis.line.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()) +
-  annotate("rect", xmin=-0.1, xmax=2, ymin=0, ymax=0.4, alpha=0.2, fill="green") +
-  annotate("rect", xmin=2, xmax=4, ymin=0, ymax=0.4, alpha=0.2, fill="yellow") +
-  annotate("rect", xmin=4, xmax=6.1, ymin=0, ymax=0.4, alpha=0.2, fill="red") +
-  geom_vline(xintercept = (pred_point$Estimate), color = "blue")
-
-# plot un-transformed data
-ggplot(df_pred, aes(x = V1_untransform)) +
+# plot data
+plt <- ggplot(df_pred, aes(x = V1_non)) +
   geom_histogram(aes(y = ..density..),
                  alpha = 0) +
   geom_density() + # bw for smoothing
   theme_classic() + 
   labs(x = "DDT Concentration (ng/g)",
-       y = NULL) +
-  theme(axis.line.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()) +
-  #annotate("rect", xmin = 0, xmax = 250, ymin = 0, ymax = 0.008, alpha = 0.2, fill = "green") +
+       y = "Density") #+
+  #theme(axis.line.y = element_blank(),
+        #axis.text.y = element_blank(),
+        #axis.ticks.y = element_blank()) #+
+  #annotate("rect", xmin = 0, xmax = 250, ymin = 0, ymax = 0.0001, alpha = 0.2, fill = "green") +
   #annotate("rect", xmin=250, xmax=500, ymin=0, ymax=0.008, alpha=0.2, fill="yellow") +
-  #annotate("rect", xmin=500, xmax=1000, ymin=0, ymax=0.008, alpha=0.2, fill="red") +
-  geom_vline(xintercept = 1434.088, color = "blue") +
-  xlim(0,5000)
+  #annotate("rect", xmin=500, xmax=1000, ymin=0, ymax=0.000001, alpha=0.2, fill="red") 
 
-#ggplot(df_pred2) +
-  #geom_histogram(aes(V1))
+plt
 ```
 
 There will be a legend that describes what each color means (green is 7 servings a week, yellow is x servings a week, etc)
 Some questions:
 
 at what levels do we want to specify 
+
+
+**Trying out the rectangle stuff**
+
+```{r}
+df <- data.frame()
+ggplot()
+```
+
+
+
