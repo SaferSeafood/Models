@@ -35,6 +35,17 @@ brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detectio
                                       prior = c(set_prior("cauchy(0, 0.5)", class = "b"),
                                                 set_prior("cauchy(0, 2)", class = "sd")) 
 )
+
+# model with species as fixed effect
+brm.diet.habitat.species.year.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
+                                            TotalDDT.sed.trans * feeding_position + Year +
+                                            (1|CompositeCommonName), data =fish_clean,
+                                          prior = c(
+                                            set_prior("cauchy(0, 0.5)", class = "b"),
+                                            set_prior("cauchy(0, 2)", class = "sd")))
+
+mcmc_intervals_data(brm.diet.habitat.species.year, point_est="mean",prob = 0.8, prob_outer = 1)
+mcmc_intervals_data(brm.diet.habitat.species.year.clean, point_est="mean",prob = 0.8, prob_outer = 1)
 ```
 
 **Getting and plotting posterior range**
@@ -57,7 +68,7 @@ df_pred <- as.data.frame(post_pred) %>%
 
 # get the prediction point
 #pred_point <- df_pred %>% 
-  #summarize(mean = mean(V1_untransform))
+#summarize(mean = mean(V1_untransform))
 
 # plot data
 plt <- ggplot(df_pred, aes(x = V1_non)) +
@@ -67,12 +78,12 @@ plt <- ggplot(df_pred, aes(x = V1_non)) +
   theme_classic() + 
   labs(x = "DDT Concentration (ng/g)",
        y = "Density") #+
-  #theme(axis.line.y = element_blank(),
-        #axis.text.y = element_blank(),
-        #axis.ticks.y = element_blank()) #+
-  #annotate("rect", xmin = 0, xmax = 250, ymin = 0, ymax = 0.0001, alpha = 0.2, fill = "green") +
-  #annotate("rect", xmin=250, xmax=500, ymin=0, ymax=0.008, alpha=0.2, fill="yellow") +
-  #annotate("rect", xmin=500, xmax=1000, ymin=0, ymax=0.000001, alpha=0.2, fill="red") 
+#theme(axis.line.y = element_blank(),
+#axis.text.y = element_blank(),
+#axis.ticks.y = element_blank()) #+
+#annotate("rect", xmin = 0, xmax = 250, ymin = 0, ymax = 0.0001, alpha = 0.2, fill = "green") +
+#annotate("rect", xmin=250, xmax=500, ymin=0, ymax=0.008, alpha=0.2, fill="yellow") +
+#annotate("rect", xmin=500, xmax=1000, ymin=0, ymax=0.000001, alpha=0.2, fill="red") 
 
 plt
 ```
@@ -83,11 +94,170 @@ Some questions:
 at what levels do we want to specify 
 
 
-**Trying out the rectangle stuff**
+**Function for plotting the effects for each parameter**
 
 ```{r}
-df <- data.frame()
-ggplot()
+##################################################################################################################
+################### Plot posterior predictions for habitat/ diet models ###################
+##################################################################################################################
+
+get_dataframe_intervals <- function(model, model.type=c("trophic","habitat","all.fe")) {
+  
+  posterior <- as.matrix(model)
+  
+  if(model.type == "trophic") {levels =rev(c("Tertiary Carnivore","Secondary Carnivore","Primary Carnivore", "Baseline"))}
+  else if(model.type == "habitat") {levels = rev(c("Benthic","Benthopelagic","Midwater","Baseline"))}
+  else {levels = rev(c("Tertiary Carnivore","Secondary Carnivore","Primary Carnivore",
+                       "Benthic","Benthopelagic","Midwater","Baseline", "Year"))}
+  
+  
+  if(model.type %in% c("trophic","habitat","all.fe")){
+    data = mcmc_intervals_data(posterior, point_est="mean",prob = 0.8, prob_outer = 1) %>%
+      dplyr::filter(grepl("b_", parameter)) %>%
+      #dplyr::filter(!parameter %in% c("sigma","lprior","lp__","sd_CompositeCommonName__Intercept")) %>%
+      dplyr::mutate(parameter_new = case_when(parameter == "b_TotalDDT.sed.trans" ~"Baseline",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionMidwater" ~ "Midwater",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionBenthopelagic" ~ "Benthopelagic",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionBenthic" ~ "Benthic",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categoryPrimaryCarnivore" ~ "Primary Carnivore",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categorySecondaryCarnivore" ~ "Secondary Carnivore",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categoryTertiaryCarnivore" ~ "Tertiary Carnivore",
+                                              parameter == "b_Intercept" ~ "Baseline",
+                                              parameter == "b_Year" ~ "Year",
+                                              parameter ==  "b_trophic_categoryPrimaryCarnivore" ~ "Primary Carnivore",
+                                              parameter == "b_trophic_categorySecondaryCarnivore" ~ "Secondary Carnivore",
+                                              parameter == "b_trophic_categoryTertiaryCarnivore" ~ "Tertiary Carnivore",
+                                              parameter == "b_feeding_positionMidwater" ~ "Midwater",
+                                              parameter == "b_feeding_positionBenthopelagic" ~ "Benthopelagic",
+                                              parameter ==  "b_feeding_positionBenthic" ~ "Benthic")) %>%
+      dplyr::mutate(type = case_when(parameter == "b_TotalDDT.sed.trans" ~"Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionMidwater" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionBenthopelagic" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionBenthic" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categoryPrimaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categorySecondaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categoryTertiaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_Intercept" ~ "Intercept",
+                                     parameter == "b_Year" ~ "Year",
+                                     parameter ==  "b_trophic_categoryPrimaryCarnivore" ~ "Intercept",
+                                     parameter == "b_trophic_categorySecondaryCarnivore" ~ "Intercept",
+                                     parameter == "b_trophic_categoryTertiaryCarnivore" ~ "Intercept",
+                                     parameter == "b_feeding_positionMidwater" ~ "Intercept",
+                                     parameter == "b_feeding_positionBenthopelagic" ~ "Intercept",
+                                     parameter ==  "b_feeding_positionBenthic" ~ "Intercept")) %>%
+      dplyr::mutate(parameter_new = factor(parameter_new, levels=levels))
+    
+  }
+  else {
+    data = mcmc_intervals_data(posterior, point_est="mean",prob = 0.8, prob_outer = 1) %>%
+      dplyr::mutate(type = "Intercept") %>%
+      dplyr::filter(grepl("r_", parameter)) %>%
+      dplyr::mutate(parameter_new = str_remove(parameter, c("r_CompositeCommonName"))) %>%
+      dplyr::mutate(parameter_new = str_remove(parameter_new, c(",Intercept"))) %>%
+      dplyr::mutate(parameter_new = gsub("[][()]", "", parameter_new)) %>%
+      dplyr::mutate(parameter_new = gsub("\\.", " ", parameter_new)) %>%
+      dplyr::left_join(., fish.reg[, c("CompositeCommonName","trophic_category","feeding_position")], by=c("parameter_new"="CompositeCommonName")) %>%
+      dplyr::mutate(parameter_new = factor(parameter_new, levels=(unique(fish.clean.fam$CompositeCommonName[order(fish.clean.fam$trophic_level)])))) %>%
+      unique()
+  }
+  
+  return(data)
+}
+```
+
+
+For the model with **family** as a fixed effect: 
+```{r}
+
+dummy <- data.frame(term = rep("dummy",6),
+                    type = c("Intercept","Intercept","Sediment[DDT]","Sediment[DDT]","Year","Year"),
+                    m = c(-1.25, 3.1, -0.56, 0.85, -0.15, 0.15))
+
+
+fixed.effects.plot = ggplot(get_dataframe_intervals(brm.diet.habitat.year.fam.clean, model.type="all.fe"),
+                            aes(x = m)) +
+  geom_linerange(aes(y = parameter_new, color=parameter_new,xmin = ll, xmax = hh), size=1.1, color="black")+
+  geom_crossbar(aes(y = parameter_new, color=parameter_new, fill=parameter_new,xmin = l, xmax = h), width=0.2, color="black")+
+  #geom_point(color="black", size=2, alpha=0.5, pch=21) +
+  theme_bw() +
+  #facet_wrap(~type, scales="free") +
+  ggforce::facet_col(vars(type), scales = 'free', space = 'free') +
+  #facet_grid(rows=vars(type), scales="free", space="free_y") +
+  geom_vline(xintercept=0, linetype="dashed") +
+  scale_color_manual(values=c("#ffffcc","#ffffcc","#fecc5c","#fd8d3c","#e31a1c","#a1dab4","#41b6c4","#225ea8")) +
+  scale_fill_manual(values=c("#ffffcc","#ffffcc","#fecc5c","#fd8d3c","#e31a1c","#a1dab4","#41b6c4","#225ea8")) +
+  xlab("Coefficient Estimate") +
+  ylab("") +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "lightblue"), # Change this to your desired color
+        strip.text = element_text(color = "black"))+
+  geom_blank(data=dummy)
+
+fixed.effects.plot
+
+```
+
+For the model with **species** as a fixed effect:
+```{r}
+fixed.effects.plot = ggplot(get_dataframe_intervals(brm.diet.habitat.species.year.clean, model.type="all.fe"),
+                            aes(x = m)) +
+  geom_linerange(aes(y = parameter_new, color=parameter_new,xmin = ll, xmax = hh), size=1.1, color="black")+
+  geom_crossbar(aes(y = parameter_new, color=parameter_new, fill=parameter_new,xmin = l, xmax = h), width=0.2, color="black")+
+  #geom_point(color="black", size=2, alpha=0.5, pch=21) +
+  theme_bw() +
+  #facet_wrap(~type, scales="free") +
+  ggforce::facet_col(vars(type), scales = 'free', space = 'free') +
+  #facet_grid(rows=vars(type), scales="free", space="free_y") +
+  geom_vline(xintercept=0, linetype="dashed") +
+  scale_color_manual(values=c("#ffffcc","#ffffcc","#fecc5c","#fd8d3c","#e31a1c","#a1dab4","#41b6c4","#225ea8")) +
+  scale_fill_manual(values=c("#ffffcc","#ffffcc","#fecc5c","#fd8d3c","#e31a1c","#a1dab4","#41b6c4","#225ea8")) +
+  xlab("Coefficient Estimate") +
+  ylab("") +
+  theme(legend.position = "none")+
+  geom_blank(data=dummy)
+
+fixed.effects.plot
+```
+
+```{r}
+posterior_clean <- as.matrix(brm.diet.habitat.species.year.clean)
+brm.diet.habitat.species.year.clean
+posterior <- as.matrix(brm.diet.habitat.species.year)
+
+data = mcmc_intervals_data(posterior, point_est="mean",prob = 0.8, prob_outer = 1) %>%
+      dplyr::filter(grepl("b_", parameter)) %>%
+      #dplyr::filter(!parameter %in% c("sigma","lprior","lp__","sd_CompositeCommonName__Intercept")) %>%
+      dplyr::mutate(parameter_new = case_when(parameter == "b_TotalDDT.sed.trans" ~"Baseline",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionMidwater" ~ "Midwater",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionBenthopelagic" ~ "Benthopelagic",
+                                              parameter == "b_TotalDDT.sed.trans:feeding_positionBenthic" ~ "Benthic",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categoryPrimaryCarnivore" ~ "Primary Carnivore",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categorySecondaryCarnivore" ~ "Secondary Carnivore",
+                                              parameter == "b_TotalDDT.sed.trans:trophic_categoryTertiaryCarnivore" ~ "Tertiary Carnivore",
+                                              parameter == "b_Intercept" ~ "Baseline",
+                                              parameter == "b_Year" ~ "Year",
+                                              parameter ==  "b_trophic_categoryPrimaryCarnivore" ~ "Primary Carnivore",
+                                              parameter == "b_trophic_categorySecondaryCarnivore" ~ "Secondary Carnivore",
+                                              parameter == "b_trophic_categoryTertiaryCarnivore" ~ "Tertiary Carnivore",
+                                              parameter == "b_feeding_positionMidwater" ~ "Midwater",
+                                              parameter == "b_feeding_positionBenthopelagic" ~ "Benthopelagic",
+                                              parameter ==  "b_feeding_positionBenthic" ~ "Benthic")) %>%
+      dplyr::mutate(type = case_when(parameter == "b_TotalDDT.sed.trans" ~"Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionMidwater" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionBenthopelagic" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:feeding_positionBenthic" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categoryPrimaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categorySecondaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_TotalDDT.sed.trans:trophic_categoryTertiaryCarnivore" ~ "Sediment[DDT]",
+                                     parameter == "b_Intercept" ~ "Intercept",
+                                     parameter == "b_Year" ~ "Year",
+                                     parameter ==  "b_trophic_categoryPrimaryCarnivore" ~ "Intercept",
+                                     parameter == "b_trophic_categorySecondaryCarnivore" ~ "Intercept",
+                                     parameter == "b_trophic_categoryTertiaryCarnivore" ~ "Intercept",
+                                     parameter == "b_feeding_positionMidwater" ~ "Intercept",
+                                     parameter == "b_feeding_positionBenthopelagic" ~ "Intercept",
+                                     parameter ==  "b_feeding_positionBenthic" ~ "Intercept"))
+
 ```
 
 
