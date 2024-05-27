@@ -58,7 +58,7 @@ fish.reg = fish.reg %>%
   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998
 
 # save this dataframe as a .csv file
-# write.csv(fish.reg, here::here("data", "data_outputs", "fish_clean_ORIGINAL.csv")
+#write.csv(fish.reg, here::here("data", "data_outputs", "ddx_southernCA_lipidnorm.csv"))
 
 ##################################################################
 # ---- Updated Data Cleaning (with non-lipid normalized data) ----
@@ -112,17 +112,13 @@ fish_reg$TotalDDT.sed.trans = log(fish_reg$TotalDDT.sed + 1)
 
 # Add censoring for values equal to zero (so value is constrained to fall between zero and MDL)
 fish_reg = fish_reg %>%
-  dplyr::mutate(Censored = ifelse(TotalDDT.trans.non == 0, "interval","none"),
-
-                # ask about this limit since its divided by Lipid
-                Detection.Limit = ifelse(is.na(MDL.min),
-                                         0.5, # if MDL.min is an NA value fill with this value
-                                         log1p(MDL.min))) %>%
+  dplyr::mutate(Censored = ifelse(TotalDDT.trans.non == 0, "interval","none"), # ask about this limit since its divided by Lipid
+                Detection.Limit = ifelse(is.na(MDL.min), 0.5, log1p(MDL.min))) %>%
 
   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998
 
 # save this dataframe as a .csv file
-# write.csv(fish_reg, here::here("data", "data_outputs", "fish_clean.csv")
+#write.csv(fish_reg, here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
 
 ########################################
 # ---- Adding Family to the dataset ----
@@ -174,7 +170,7 @@ fish.reg.fam <- fish_clean_original %>%
                                 Family))
 
 # save the file as a data output
-#write.csv(fish.reg.fam, here::here("data/data_outputs/fish_clean_ORIGINAL_fam.csv"))
+#write.csv(fish.reg.fam, here::here("data/data_outputs/ddx_southernCA_lipidnorm.csv"))
 
 # add the family and genus to the dataframe
 fish.clean.fam <- fish_clean %>%
@@ -187,4 +183,4 @@ fish.clean.fam <- fish_clean %>%
                                 Family))
 
 # save the file as a data output
-#write.csv(fish.clean.fam, here::here("data/data_outputs/fish_clean_fam.csv"))
+#write.csv(fish.clean.fam, here::here("data/data_outputs/ddx_southernCA_norm.csv"))
