@@ -7,6 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+
+library(tidyverse)
+library(brms)
 ```
 
 ## Overview
@@ -49,10 +52,10 @@ The code is supplemented with text describing what we were testing and the decis
 
 ```{r}
 # load in the cleaned data with non lipid-normalized data
-fish_clean <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+fish_clean <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
 
 # load in cleaned data with lipid-normalized data
-fish_clean_original <- read_csv(here::here("data", "data_outputs", "fish_clean_ORIGINAL.csv"))
+fish_clean_original <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_lipidnorm.csv"))
 ```
 
 **Run models with non-lipid normalized data**
@@ -238,5 +241,30 @@ R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.species.year,
                    brm.diet.habitat.year), 
                    FUN=bayes_R2)
+```
+
+save final model as .rda
+```{r}
+#saveRDS(brm.diet.habitat.species.year.non, file = here::here("data", "data_outputs", "brm_species_model.rda"))
+```
+
+
+
+```{r}
+
+predict(brm.diet.habitat.species.year.non,
+              data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
+                   trophic_category = "Secondary Carnivore", # get from life history characteristics
+                   feeding_position = "Benthopelagic", # get from life history characteristics
+                   CompositeCommonName = "white croaker",
+                   Year = 2))
+
+fitted(brm.diet.habitat.species.year.non,
+              data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
+                   trophic_category = "Secondary Carnivore", # get from life history characteristics
+                   feeding_position = "Benthopelagic", # get from life history characteristics
+                   CompositeCommonName = "white croaker",
+                   Year = 2))
+
 ```
 
