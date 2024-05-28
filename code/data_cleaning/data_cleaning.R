@@ -118,11 +118,7 @@ fish_reg = fish_reg %>%
   dplyr::mutate(Year = Year - 1998) # We want to use years since 1998
 
 # save this dataframe as a .csv file
-<<<<<<< HEAD
 #write.csv(fish_reg, here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
-=======
-#write.csv(fish_reg, here::here("data", "data_outputs", "fish_clean.csv"))
->>>>>>> da5c906317260ba0df1dddc7bc3d9783421715b5
 
 ########################################
 # ---- Adding Family to the dataset ----
