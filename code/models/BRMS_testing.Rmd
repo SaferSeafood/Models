@@ -259,12 +259,12 @@ predict(brm.diet.habitat.species.year.non,
                    CompositeCommonName = "white croaker",
                    Year = 2))
 
-fitted(brm.diet.habitat.species.year.non,
+df <- as.data.frame(fitted(brm.diet.habitat.species.year.non,
               data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
                    trophic_category = "Secondary Carnivore", # get from life history characteristics
                    feeding_position = "Benthopelagic", # get from life history characteristics
                    CompositeCommonName = "white croaker",
-                   Year = 2))
+                   Year = 2)))
 
 ```
 
