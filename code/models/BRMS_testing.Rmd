@@ -2,7 +2,7 @@
 title: "BRMS Testing"
 author: "SaferSeafood"
 date: "2024-05-12"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -44,6 +44,26 @@ The code is supplemented with text describing what we were testing and the decis
 * Compare updated model to original model
 * Run same models with family instead of species
 
+*Model name guide*
+
+All models that end with ".non" predict non lipid-normalized DDT tissue concentrations.
+
+`brm.none.non` predicts 
+`brm.habitat.slope.non`
+`brm.habitat.intercept.non`
+`brm.diet.slope.non`
+`brm.diet.intercept.non`
+`brm.diet.slope.non`
+`brm.diet.intercept.non`
+`brm.trophic.non`
+`brm.habitat.non`
+`brm.diet.habitat.non`
+`brm.diet.habitat.year.non`
+`brm.diet.habitat.species.non`
+`brm.diet.habitat.species.year.non` is the updated model that has the same predictors, but uses non lipid-normalized data.
+
+`brm.diet.habitat.species.year.original` is the model that the clients originally used using trophic level, feeding position, year, and normalized sediment DDT as predictors. This model predicts lipid-normalized DDT tissue concentrations
+
 --- 
 
 ## Code
@@ -60,11 +80,12 @@ fish_clean_original <- read_csv(here::here("data", "data_outputs", "ddx_southern
 
 **Run models with non-lipid normalized data**
 
-The original models used in this project are in client_models.R. 
+The original models used in this project are in client_models.R in the same folder.
 
-We will be running this original structure, but updated with with non-lipid normalized data
+We will be running the client's original structure, but updated with with non-lipid normalized data rather than lipid-normalized data as the client's did.
 
 The highest elpd value is the best performing model, in this case it is the model using diet, habitat, species, and year (brm.diet.habitat.species.year.non).
+
 
 ```{r}
 # ---- Look at best structure for model ----
@@ -141,35 +162,37 @@ LOO.results = LOO(brm.none.non,
 
 LOO.results
 
+## Look at paramter estimates for best-fit model (80% highest density credible intervals)
 mcmc_intervals_data(brm.diet.habitat.species.year.non, point_est="mean",prob = 0.8, prob_outer = 1)
 ```
+
 **Compare updated model to original model**
 
 The performance of the updated model is comparable to the original model (determined by elpd and R-squared value). However, when removing species, the performance drops. 
 
+
 ```{r}
-# original model
-brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year +
-                                      (1|CompositeCommonName), data = fish_clean_original,
+# original model used by client with lipid-nornalized DDT
+brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), data = fish_clean_original,
                                     prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b"),
                                       set_prior("cauchy(0, 2)", class = "sd")))
 
 # removing species as a predictor
-brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, 
-                            data = fish_clean, 
+brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, data = fish_clean, 
                             prior = c(
-                              set_prior("cauchy(0, 0.5)", class = "b")#,   
-                              #set_prior("cauchy(0, 2)", class = "sd"))
-                            ))
+                              set_prior("cauchy(0, 0.5)", class = "b"),   
+                              set_prior("cauchy(0, 2)", class = "sd"))
+                            )
 
 # compare results
-loo_results <- LOO(brm.diet.habitat.species.year.original,
+loo_results <- LOO(brm.diet.habitat.species.year.original, # the 
                    brm.diet.habitat.species.year.non,
                    brm.diet.habitat.year)
 
 loo_results
 
+# look at R2 
 R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.species.year.non,
                    brm.diet.habitat.year.non), 
@@ -178,60 +201,25 @@ R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
 R2.results
 ```
 
+save final model as .rda
+```{r}
+#saveRDS(brm.diet.habitat.species.year.non, file = here::here("data", "data_outputs", "brm_species_model.rda"))
+```
+
 **Run same models with family instead of species**
 
+
+
 ```{r}
-# Look at best structure for model
-brm.none = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans, 
-                   data = fish_clean, # changed data
-                   prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.habitat.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:feeding_position, 
-                            data = fish_clean, # changed data
-                            prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.habitat.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + feeding_position, 
-                                data = fish_clean, # changd data
-                                prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.diet.slope = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + TotalDDT.sed.trans:trophic_category, 
-                         data = fish_clean, # changed data
-                         prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.diet.intercept = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans + trophic_category, 
-                             data = fish_clean, # changed data 
-                             prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-
-brm.trophic = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category,
-                  data = fish_clean, # changed data
-                  prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.habitat = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * feeding_position,
-                  data = fish_clean, # changed data 
-                  prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.diet.habitat.fam = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                         TotalDDT.sed.trans * feeding_position, 
-                         data = fish_clean, # changed data
-                         prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                              TotalDDT.sed.trans * feeding_position + Year, 
-                            data = fish_clean, # changed data
-                            prior = c(set_prior("cauchy(0, 0.5)", class = "b")))
-
-brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + 
-                                   TotalDDT.sed.trans * feeding_position + (1|Family), 
-                       data =fish.clean.fam, # changed data
+brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + (1|Family), 
+                       data =fish_clean, # changed data
                        prior = c(
                                  set_prior("cauchy(0, 0.5)", class = "b"),
                                  set_prior("cauchy(0, 2)", class = "sd"))
                                )
 
-brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category +
-                                      TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
-                                data =fish.clean.fam, # changed data
+brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
+                                data =fish_clean, # changed data
                                 prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b"),
                                       set_prior("cauchy(0, 2)", class = "sd")) 
@@ -241,11 +229,6 @@ R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.species.year,
                    brm.diet.habitat.year), 
                    FUN=bayes_R2)
-```
-
-save final model as .rda
-```{r}
-#saveRDS(brm.diet.habitat.species.year.non, file = here::here("data", "data_outputs", "brm_species_model.rda"))
 ```
 
 
