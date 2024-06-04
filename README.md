@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the main repository that will be used by Master of Environmental Data Science students from UCSB's Bren School of Environmental Science & Management to fulfill their capstone project with Scripps Institute of Oceanography and CalCOFI. The analysis and products will include developing spatiotemporal statistical models to predict DDT concentrations in sport fish across Southern California and creating a public facing online application to visualize predicted DDT concentrations for specific fish species. 
+This repository includes code for models that that will be used by Master of Environmental Data Science students from UCSB's Bren School of Environmental Science & Management to fulfill their capstone project with Scripps Institute of Oceanography and CalCOFI. The analysis and products will include developing spatiotemporal statistical models to predict DDT concentrations in sport fish across Southern California and creating a public facing online application to visualize predicted DDT concentrations for specific fish species. 
 
 ## About the Data
 **Sediment Data**
