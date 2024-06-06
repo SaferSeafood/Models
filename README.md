@@ -37,9 +37,6 @@ The structure of the repo is as follows:
 >       │ fish_data
 >       │ sediment_data
 >       │ data_outputs
->       │ model_performance
 > └───code
 >       │ data_cleaning
->       │ functions
 >       │ models
->       │ tables
