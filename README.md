@@ -43,4 +43,5 @@ The structure of the repo is as follows:
 >
 >
 ## Metadata
-	<img width="1088" alt="image" src="https://github.com/SaferSeafood/Models/assets/121061044/7cb98d0c-4e47-4cee-b75a-d41c1aebdb9d">
+Metadata
+	<img width="1088" alt="image" src="https://github.com/SaferSeafood/Models/assets/121061044/85fac35c-8df6-421c-b8ed-09bbebf33ea7">
