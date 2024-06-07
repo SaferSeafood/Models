@@ -40,8 +40,3 @@ The structure of the repo is as follows:
 > └───code
 >       │ data_cleaning
 >       │ models
->
->
-## Metadata
-Data elements
-	<img width="1088" alt="image" src="https://github.com/SaferSeafood/Models/assets/121061044/85fac35c-8df6-421c-b8ed-09bbebf33ea7">
