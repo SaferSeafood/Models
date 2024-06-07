@@ -2,7 +2,7 @@
 title: "Tidymodels Testing"
 author: "SaferSeafood"
 date: "2024-03-19"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -64,10 +64,10 @@ This document contains code and text describing the testing process. This docume
 ```{r}
 # READ IN DATA ----
 # read in cleaned data
-fish_cleaned <- read_csv(here::here("data", "data_outputs", "fish_clean.csv"))
+fish_cleaned <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
 
 # read in data with family 
-fish_clean_fam <- read_csv(here::here("data", "data_outputs", "fish_clean_fam.csv"))
+fish_clean_fam <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_lipidnorm.csv"))
 
 # DATA SPLITTING ---- 
 # split new data

@@ -48,7 +48,9 @@ The code is supplemented with text describing what we were testing and the decis
 
 All models that end with ".non" predict non lipid-normalized DDT tissue concentrations.
 
-`brm.none.non` predicts 
+The following models are different variations of formula structure that were tested, but were not chosen:
+
+`brm.none.non` 
 `brm.habitat.slope.non`
 `brm.habitat.intercept.non`
 `brm.diet.slope.non`
@@ -60,15 +62,22 @@ All models that end with ".non" predict non lipid-normalized DDT tissue concentr
 `brm.diet.habitat.non`
 `brm.diet.habitat.year.non`
 `brm.diet.habitat.species.non`
-`brm.diet.habitat.species.year.non` is the updated model that has the same predictors, but uses non lipid-normalized data.
 
-`brm.diet.habitat.species.year.original` is the model that the clients originally used using trophic level, feeding position, year, and normalized sediment DDT as predictors. This model predicts lipid-normalized DDT tissue concentrations
+This model  is adaptation of original model that uses all predictors, but uses non lipid-normalized data:
+
+`brm.diet.habitat.species.year.non` 
+
+This model is the model that the clients originally used using trophic level, feeding position, year, and normalized sediment DDT as predictors. This model predicts lipid-normalized DDT tissue concentrations:
+
+`brm.diet.habitat.species.year.original` 
 
 --- 
 
 ## Code
 
 **Load in data**
+
+This is the data that has been cleaned in the data_cleaning.R script.
 
 ```{r}
 # load in the cleaned data with non lipid-normalized data
@@ -82,7 +91,7 @@ fish_clean_original <- read_csv(here::here("data", "data_outputs", "ddx_southern
 
 The original models used in this project are in client_models.R in the same folder.
 
-We will be running the client's original structure, but updated with with non-lipid normalized data rather than lipid-normalized data as the client's did.
+We will be running the client's original structure, but updated with with non-lipid normalized data rather than lipid-normalized data as the clients did.
 
 The highest elpd value is the best performing model, in this case it is the model using diet, habitat, species, and year (brm.diet.habitat.species.year.non).
 
@@ -169,7 +178,6 @@ mcmc_intervals_data(brm.diet.habitat.species.year.non, point_est="mean",prob = 0
 **Compare updated model to original model**
 
 The performance of the updated model is comparable to the original model (determined by elpd and R-squared value). However, when removing species, the performance drops. 
-
 
 ```{r}
 # original model used by client with lipid-nornalized DDT
