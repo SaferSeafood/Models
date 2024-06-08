@@ -2,14 +2,16 @@
 title: "BRMS Testing"
 author: "SaferSeafood"
 date: "2024-05-12"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE) 
 
 library(tidyverse)
 library(brms)
+library(bayesplot)
+library(loo)
 ```
 
 ## Overview
@@ -87,14 +89,25 @@ fish_clean <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_norm.c
 fish_clean_original <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_lipidnorm.csv"))
 ```
 
+**Client's final model**
+
+This code contains the client's final model that was created using lipid-normalized data.
+
+The original testing and models used in this project are in client_models.R file.
+
+```{r}
+# original model used by client with lipid-nornalized DDT
+brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), data = fish_clean_original,
+                                    prior = c(
+                                      set_prior("cauchy(0, 0.5)", class = "b"),
+                                      set_prior("cauchy(0, 2)", class = "sd")))
+```
+
 **Run models with non-lipid normalized data**
 
-The original models used in this project are in client_models.R in the same folder.
-
-We will be running the client's original structure, but updated with with non-lipid normalized data rather than lipid-normalized data as the clients did.
+We want to make sure we are testing all the formulas that the client did, so will be testing the client's model formulas the same way that they did, but updated with with non-lipid normalized data rather than lipid-normalized data.
 
 The highest elpd value is the best performing model, in this case it is the model using diet, habitat, species, and year (brm.diet.habitat.species.year.non).
-
 
 ```{r}
 # ---- Look at best structure for model ----
@@ -175,19 +188,17 @@ LOO.results
 mcmc_intervals_data(brm.diet.habitat.species.year.non, point_est="mean",prob = 0.8, prob_outer = 1)
 ```
 
-**Compare updated model to original model**
+**Compare more models**
 
-The performance of the updated model is comparable to the original model (determined by elpd and R-squared value). However, when removing species, the performance drops. 
+Using the best model, we wanted to remove species as a predictor to see if it performs just as well, and will potentially help predictive power if fisherman catch a species not included in our data.
+
+We compared the performance of this model, the client's original model, and the brm.diet.habitat.species.year.non model ran previously.
+
+The performance of the updated model with all predictors is comparable to the original model (determined by elpd and R-squared value). However, when removing species, the performance drops. 
 
 ```{r}
-# original model used by client with lipid-nornalized DDT
-brm.diet.habitat.species.year.original = brm(TotalDDT.trans|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName), data = fish_clean_original,
-                                    prior = c(
-                                      set_prior("cauchy(0, 0.5)", class = "b"),
-                                      set_prior("cauchy(0, 2)", class = "sd")))
-
 # removing species as a predictor
-brm.diet.habitat.year = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, data = fish_clean, 
+brm.diet.habitat.year.non = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, data = fish_clean, 
                             prior = c(
                               set_prior("cauchy(0, 0.5)", class = "b"),   
                               set_prior("cauchy(0, 2)", class = "sd"))
@@ -209,23 +220,20 @@ R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
 R2.results
 ```
 
-save final model as .rda
+Here, we save the final model we will be using as an .rda file, so we can load it into our dashoard.
+
 ```{r}
 #saveRDS(brm.diet.habitat.species.year.non, file = here::here("data", "data_outputs", "brm_species_model.rda"))
 ```
 
 **Run same models with family instead of species**
 
+To continue to understand if we can remove species as a predictor and improve predictive power, we tested the same model, but with family instead of species. 
 
+This model did not perform as well as brm.diet.habitat.species.year.non, so we will stick with the first model, which includes the same predictors as the client's model.
 
 ```{r}
-brm.diet.habitat.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + (1|Family), 
-                       data =fish_clean, # changed data
-                       prior = c(
-                                 set_prior("cauchy(0, 0.5)", class = "b"),
-                                 set_prior("cauchy(0, 2)", class = "sd"))
-                               )
-
+# brm.diet.habitat.species.year.non but with family instead of species
 brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
                                 data =fish_clean, # changed data
                                 prior = c(
@@ -234,28 +242,20 @@ brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detectio
                                     )
 
 R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
-                   brm.diet.habitat.species.year,
-                   brm.diet.habitat.year), 
+                   brm.diet.habitat.species.year.non,
+                   brm.diet.habitat.year.fam.clean), 
                    FUN=bayes_R2)
 ```
 
 
+**Here is some practice making predictions on new data!**
 
 ```{r}
-
 predict(brm.diet.habitat.species.year.non,
               data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
                    trophic_category = "Secondary Carnivore", # get from life history characteristics
                    feeding_position = "Benthopelagic", # get from life history characteristics
                    CompositeCommonName = "white croaker",
                    Year = 2))
-
-df <- as.data.frame(fitted(brm.diet.habitat.species.year.non,
-              data.frame(TotalDDT.sed.trans = 0.735932630, # get from fishing zone
-                   trophic_category = "Secondary Carnivore", # get from life history characteristics
-                   feeding_position = "Benthopelagic", # get from life history characteristics
-                   CompositeCommonName = "white croaker",
-                   Year = 2)))
-
 ```
 
