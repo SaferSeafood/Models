@@ -200,14 +200,12 @@ The performance of the updated model with all predictors is comparable to the or
 # removing species as a predictor
 brm.diet.habitat.year.non = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year, data = fish_clean, 
                             prior = c(
-                              set_prior("cauchy(0, 0.5)", class = "b"),   
-                              set_prior("cauchy(0, 2)", class = "sd"))
-                            )
+                              set_prior("cauchy(0, 0.5)", class = "b")))
 
 # compare results
-loo_results <- LOO(brm.diet.habitat.species.year.original, # the 
+loo_results <- LOO(brm.diet.habitat.species.year.original, 
                    brm.diet.habitat.species.year.non,
-                   brm.diet.habitat.year)
+                   brm.diet.habitat.year.non)
 
 loo_results
 
@@ -230,23 +228,32 @@ Here, we save the final model we will be using as an .rda file, so we can load i
 
 To continue to understand if we can remove species as a predictor and improve predictive power, we tested the same model, but with family instead of species. 
 
-This model did not perform as well as brm.diet.habitat.species.year.non, so we will stick with the first model, which includes the same predictors as the client's model.
+This model did not perform better than brm.diet.habitat.species.year.non, so we will stick with the first model, which includes the same predictors as the client's model.
 
 ```{r}
 # brm.diet.habitat.species.year.non but with family instead of species
-brm.diet.habitat.year.fam.clean = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
+brm.diet.habitat.year.fam.non = brm(TotalDDT.trans.non|cens(Censored, Detection.Limit) ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family), 
                                 data =fish_clean, # changed data
                                 prior = c(
                                       set_prior("cauchy(0, 0.5)", class = "b"),
                                       set_prior("cauchy(0, 2)", class = "sd")) 
                                     )
 
+# compare results
+loo_results <- LOO(brm.diet.habitat.species.year.original, 
+                   brm.diet.habitat.species.year.non,
+                   brm.diet.habitat.year.fam.non)
+
+loo_results
+
+# r2 values
 R2.results = lapply(X=list(brm.diet.habitat.species.year.original,
                    brm.diet.habitat.species.year.non,
-                   brm.diet.habitat.year.fam.clean), 
+                   brm.diet.habitat.year.fam.non), 
                    FUN=bayes_R2)
-```
 
+R2.results
+```
 
 **Here is some practice making predictions on new data!**
 
@@ -259,3 +266,7 @@ predict(brm.diet.habitat.species.year.non,
                    Year = 2))
 ```
 
+
+## Results/Overview
+
+In this document we ran multiple different model structures for predicting non lipid-normalized DDT predictions. Our best performing model used the same formula as the client's final model using lipid-normalized data. The updated model does not perform just as well as the client's original model, but it performs the best out of all models using non lipid-normalized data.
