@@ -2,11 +2,11 @@
 title: "Tidymodels Testing"
 author: "SaferSeafood"
 date: "2024-03-19"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 
 library(rfishbase)
 library(tidyverse)
@@ -19,22 +19,6 @@ library(rstanarm)
 
 ---
 
-### The Data
-
-The data used in this project will be:
-
-***Sediment Data***
-
-The sediment .rds file contains the total DDT sediment concentration and year. 
-
-***Fish Data***
-
-Fish life history:
-Fish life history data contains trophic and feeding position data for species that were sampled. 
-
-Fish DDT data:
-Fish DDT data contains total DDT concentration, lipid normalized DDT data, and other fish DDT information.
-
 ### Summary of document
 
 This document contains model testing using a machine learning approach to test predictive accuracy of our chosen model (updated model with non lipid-normalized data). The decisions to choose a model formula can be found in the BRMS_testing.Rmd file in the same folder.
@@ -46,14 +30,12 @@ This document contains code and text describing the testing process. This docume
 * Read in data/prep
 
 **Modeling Family and Species as Random Effects**
+
 * Create model spec
 * Create workflow
 * Train model with training data 
 * Predict on test data
 * Metrics
-
-**Feature selection**
-* Running model without interacting predictors
 
 ---
 
@@ -66,18 +48,11 @@ This document contains code and text describing the testing process. This docume
 # read in cleaned data
 fish_cleaned <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
 
-# read in data with family 
-fish_clean_fam <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_lipidnorm.csv"))
-
 # DATA SPLITTING ---- 
 # split new data
-fam_split <- initial_split(fish_clean_fam, prop = 0.7)
-fam_train <- training(fam_split)
-fam_test <- testing(fam_split)
-
-species_split <- initial_split(fish_cleaned, prop = 0.7)
-species_train <- training(species_split)
-species_test <- testing(species_split)
+fish_split <- initial_split(fish_cleaned, prop = 0.7)
+fish_train <- training(fish_split)
+fish_test <- testing(fish_split)
 ```
 
 ### MODELING FAMILY and SPECIES AS RANDOM EFFECTS
@@ -86,7 +61,7 @@ species_test <- testing(species_split)
 
 ```{r}
 # create spec
-brm_fish_spec_fam <- linear_reg() %>% 
+brm_fish_spec <- linear_reg() %>% 
   set_engine("stan_glmer", 
              prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
   set_mode("regression")
@@ -94,53 +69,60 @@ brm_fish_spec_fam <- linear_reg() %>%
 
 **Create workflow**
 
+Create two separate workflows, one with family and one with species as a random effect. We want to understand whether using family as a predictor rather than species has a higher predictive power in the case that a fisherman catches a species outside of our list. The format of this step is suggested by the multilevelmod documentation.
+
 ```{r}
 # this is the workflow suggested by multilevelmod 
-lmer_wflow <- 
+# family workflow
+fam_wflow <- 
   workflow() %>% 
   add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
-  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
+  add_model(brm_fish_spec, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|Family))
 
 # species workflow
 species_wf <-  workflow() %>% 
   add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, CompositeCommonName)) %>% 
-  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
+  add_model(brm_fish_spec, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName))
 ```
 
-**Train model with training data**
+**Train each model with training data**
 
 ```{r}
 # fit family model
-brm_fam_fit <- lmer_wflow %>% 
-  fit(data = fam_train) 
+brm_fam_fit <- fam_wflow %>% 
+  fit(data = fish_train) 
 
 # fit species model
 brm_species_fit <- species_wf %>% 
-  fit(data = species_train)
+  fit(data = fish_train)
 ```
 
 **Predict on test data**
 
+Use our model to make predictions on test data.
+
 ```{r}
 # prediction for family model ----
 # get predictions
-test_predict_fam <- predict(brm_fam_fit, fam_test) %>% #get prediction probabilities for test data
-  bind_cols(fam_test)
+test_predict_fam <- predict(brm_fam_fit, fish_test) %>% #get prediction probabilities for test data
+  bind_cols(fish_test)
 
 # get prediction interval and add it to the predictions
-predict_species_int <- predict(brm_fam_fit, fam_test, type = "pred_int") %>% 
+predict_species_int <- predict(brm_fam_fit, fish_test, type = "pred_int") %>% 
   bind_cols(test_predict_fam)
 
 # prediction for species model ----
-test_predict_species <- predict(brm_species_fit, species_test) %>% 
-  bind_cols(species_test)
+test_predict_species <- predict(brm_species_fit, fish_test) %>% 
+  bind_cols(fish_test)
 
 # get prediction interval and add it to the predictions
-predict_fam_int <- predict(brm_species_fit, species_test, type = "pred_int") %>% 
+predict_fam_int <- predict(brm_species_fit, fish_test, type = "pred_int") %>% 
   bind_cols(test_predict_fam)
 ```
 
 **METRICS**
+
+Get the model performance for our test data predictions.
 
 ```{r}
 randomfam <- metrics(test_predict_fam, truth = TotalDDT.trans.non, estimate = .pred)
@@ -150,33 +132,7 @@ randomfam
 randomspecies
 ```
 
-### Feature Selection
+## Results/Overview
 
-**Running model without the interacting predictors**
-
-```{r}
-# create spec
-submodel_spec <- linear_reg() %>% 
-  set_engine("stan_glmer", 
-             prior_intercept = rstanarm::cauchy(0, 0.5)) %>%
-  set_mode("regression")
-
-# this is the workflow suggested by multilevelmod 
-submodel_wflow <- 
-  workflow() %>% 
-  add_variables(outcomes = TotalDDT.trans.non, predictors = c(TotalDDT.sed.trans, trophic_category, TotalDDT.sed.trans, feeding_position, Year, Family)) %>% 
-  add_model(brm_fish_spec_fam, formula = TotalDDT.trans.non ~ TotalDDT.sed.trans + trophic_category + feeding_position + Year + (1|Family))
-
-# train using the other workflow
-submodel_fit <- submodel_wflow %>% 
-  fit(data = fam_train) 
-
-# predict using other workflow
-submodel_predict <- predict(submodel_fit, fam_test) %>% #get prediction probabilities for test data
-  bind_cols(fam_test)
-
-submodel_metrics <- metrics(submodel_predict, truth = TotalDDT.trans.non, estimate = .pred)
-
-submodel_metrics
-```
+Using this approach allowed us to understand the predictive power on 30% of the data. The knitted document may have varying results as the data splitting is random each time. However, the general results show that the model that uses species as a random effect does, in fact, perform better than the model using family as a random effect. The R squared value of this model is comparable to the brms model R squared, which confirms our choice and robustness of our model choice. 
 
