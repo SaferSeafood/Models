@@ -25,10 +25,11 @@ The structure of this folder is as follows
 
 > ```
 > └───code
+>       │  README.md
 >       └───data_cleaning
->             │data_cleaning.R
+>             │  data_cleaning.R
 >       └───models
->             │BRMS_testing.Rmd
->             │client_models.R
->             │feature_selection.Rmd
->             │tidymodels_testing.Rmd
+>             │  BRMS_testing.Rmd
+>             │  client_models.R
+>             │  feature_selection.Rmd
+>             │  tidymodels_testing.Rmd
