@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE) 
 
 library(projpred)
 library(tidyverse)
@@ -23,16 +23,15 @@ This document contains code for feature selection using the `projpred` package. 
 
 The process of the feature selection was based off of `projpred` documentation.
 
-### Load in Data
+We performed feature selection on our final model selection with the formula including: diet, habitat, species, year, sediment DDT (including interacting predictors as well)
 
+### Load in Data
+ 
+Load in appropriate dataset and split data into training and testing sets.
 ```{r}
 # read in cleaned data
 fish_cleaned <- read_csv(here::here("data", "data_outputs", "ddx_southernCA_norm.csv"))
-```
 
-***Add family to the data***
-
-```{r}
 # split new data
 fish_split <- initial_split(fish_cleaned, prop = 0.7)
 fish_train <- training(fish_split)
@@ -42,18 +41,18 @@ fish_test <- testing(fish_split)
 ### Set reference model 
 
 Set reference model using stan_glmer() function but the same formula as the clients: 
-This did not work unless selected only the predictors in the model so tidy the data to select these.
+This did not work unless I selected only the predictors in the model so tidy the data to select these first. 
 
 ```{r}
-# create training dataset 
+# Clean training dataset to only include predictors in model
 fish_projpred_train <- fish_train %>% 
   select(TotalDDT.trans.non, TotalDDT.sed.trans, trophic_category, feeding_position, Year, CompositeCommonName)
 
-# set reference model
+# set the reference model as specified in projpred documentation
 refm_fit <- stan_glmer(
   TotalDDT.trans.non ~ TotalDDT.sed.trans * trophic_category + TotalDDT.sed.trans * feeding_position + Year + (1|CompositeCommonName),
   family = gaussian(),
-  data = fish_train,
+  data = fish_projpred_train,
   refresh = 0,
   prior_intercept = rstanarm::cauchy(0, 0.5)
 )
@@ -61,11 +60,13 @@ refm_fit <- stan_glmer(
 
 ### Incorporating projpred
 
+The next steps all include the workflow from the projpred vignette from the projpred documentation.
+
 In the projpred vignette, they set the method to L1, but it did not work with our multilevel model, so I took it out.
 Plot the model performance using rmse. 
 
 ```{r}
-# set reference model (client's model)
+# set the reference model (client's model)
 refm_obj <- get_refmodel(refm_fit)
 
 # preliminary (fast) run
@@ -100,8 +101,9 @@ cvvs_fast_refit <- cv_varsel(
 
 plot(cvvs_fast_refit, stats = "rmse", ranking_nterms_max = NA)
 ```
+Both plot shows that the model performance levels at around 3 predictors. 
 
-run the model with k-fold cross validation.
+We now run the model with k-fold cross validation (using 10 folds).
 ```{r}
 ncores <- parallel::detectCores(logical = FALSE)
 
@@ -174,15 +176,10 @@ library(bayesplot)
 bayesplot_theme_set(ggplot2::theme_bw())
 mcmc_intervals(prj_mat) +
   ggplot2::coord_cartesian(xlim = c(-1.5, 1.6))
-
-refm_mat <- as.matrix(refm_fit)
-mcmc_intervals(refm_mat, pars = colnames(prj_mat)) +
-  ggplot2::coord_cartesian(xlim = c(-1.5, 1.6))
 ```
 
 predictions
 ```{r}
-
 prj_linpred <- proj_linpred(prj, newdata = fish_projpred_train)
 cbind(fish_projpred_train, linpred = as.vector(prj_linpred$pred))
 
@@ -191,6 +188,8 @@ prj_predict <- proj_predict(prj)
 ppc_dens_overlay(y = fish_projpred_train$TotalDDT.trans.non, yrep = prj_predict)
 ```
 
-### Results/overview
+### Results/overview of projpred
 
-The interacting predictors MAY not be needed and may have been leading to overfitting. We will run tidymodels without these predictors and see if there is better generalizability. 
+The predictor ranking chart shows that all predictors are likely important, so the model will be left as is. 
+
+
