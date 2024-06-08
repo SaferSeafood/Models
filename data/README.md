@@ -28,18 +28,19 @@ The data was compiled from researchers at the Scripps Institution of Oceanograph
 The structure of this folder is as follows:
 > ```
 > └───data
+>       │  README.md
 >       └───fish_data
->             │fish_life_history.csv
->             │pelagic_nearshore_fish_zones.rds
->             │totalDDT_fish_SouthernCA.csv
->             │totalDDX_fish_metadata.csv
->             │totalDDX_fish_southernCA.csv
+>             │  fish_life_history.csv
+>             │  pelagic_nearshore_fish_zones.rds
+>             │  totalDDT_fish_SouthernCA.csv
+>             │  totalDDX_fish_metadata.csv
+>             │  totalDDX_fish_southernCA.csv
 >       └───sediment_data
->             │sediment_rasters
->             │totalDDX_sediment_zone_summary.rds
+>             │  sediment_rasters
+>             │  totalDDX_sediment_zone_summary.rds
 >       └───data_outputs
->             │brm_species_model.rda
->             │ddx_southernCA_lipidnorm.csv
->             │ddx_southernCA_norm.csv
->             │metadata.md
+>             │  brm_species_model.rda
+>             │  ddx_southernCA_lipidnorm.csv
+>             │  ddx_southernCA_norm.csv
+>             │  metadata.md
 >       
