@@ -17,8 +17,9 @@ To evaluate the robustness and predictive power from the models using brms and L
 
 **feature_selection.Rmd**
 
-To add to the machine learning process, the projpred package was used to understand whether all predictors in the final model were useful and the model was not overfitted. The results of this process suggested that the interacting variables may be slightly less important for the model and lead to potential overfitting. To double check these results, the interacting variables were removed from the tidymodels workflow to determine whether the model performs better without these variables. However, the model with all predictors present had a higher predictive power than the new model without interacting predictors, based on the R2 value, further confirming the decision of using the client’s original model formula.
+To add to the machine learning process, the projpred package was used to understand whether all predictors in the final model were useful and the model was not overfitted. The results of this process suggested that the all the variables were useful for the model, so the original model formula was kept. 
 
+all files have been knitted to html to easily access results and workflow.
 
 ## Structure
 The structure of this folder is as follows 
